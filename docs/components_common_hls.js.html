@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: components/common/hls.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: components/common/hls.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import Hls from "hls.js";
+import Player from "../../pages/player.js";
+import { el, getItem, setItem } from "../../utils.js";
+import Subtitles from "../subtitles.js";
+import GlobalAnalytics from "../../services/globalAnalytics.js";
+import Analytics from "../../services/analytics.js";
+import { convertTime } from "../../utils.js";
+import {
+  adsManager,
+  load_ima_ads,
+  loadAds,
+  showImaAds,
+  hasAds,
+  configAdBreak
+} from "../ads.js";
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+let videoTimer = null;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+let fastForwardTimer = null;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+let backForwardTimer = null;
+
+class HlsPlayer {
+  constructor(channel, nextChannelUrl, use_hls, isVideoWatchedTime) {
+    this.channel = channel;
+
+    Player.isLiveStreaming = channel.is_live_streaming;
+
+    HlsPlayer.current_channel = channel;
+    this.nextChannelUrl = nextChannelUrl;
+    this.useHls = use_hls;
+    HlsPlayer.useHls = use_hls;
+    this.isVideoWatchedTime = isVideoWatchedTime;
+
+    const globalAnalytics = new GlobalAnalytics();
+    HlsPlayer.analytics = new Analytics(globalAnalytics);
+    HlsPlayer.analytics.setVideoSession(this.channel);
+    HlsPlayer.analytics.sendEvent("startVideo");
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {number}
+ */
+static videoTime = 0;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static isPaused = false;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static isPlaying = false;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {string}
+ */
+static currentVideoUrl = "";
+  static fastForwardCount = 10;
+  static backForwardCount = 10;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {*}
+ */
+static hlsPLayer = null;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {*}
+ */
+static current_channel;
+  static analytics = null;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static useHls = false;
+
+  static showLoading() {
+    const video_loader_img = window.appData?.graphic?.loader_image;
+
+    const video_loader = el("div", "video-loader", "video_loader");
+
+    const video_loader_parent = el("div", "loader-parent");
+
+    if (video_loader_img) {
+      const video_loader_img_el = el("img", "loader-img");
+      video_loader_img_el.src = video_loader_img;
+      video_loader_parent.appendChild(video_loader_img_el);
+    } else {
+      const video_loader_item1 = el("div", "loader-item1");
+      const video_loader_item2 = el("div", "loader-item2");
+
+      video_loader_parent.appendChild(video_loader_item1);
+      video_loader_parent.appendChild(video_loader_item2);
+    }
+    video_loader.appendChild(video_loader_parent);
+
+    const video_parent = document.getElementById("video_parent");
+    video_parent.appendChild(video_loader);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @param {*} e
+ */
+static seek(e) {
+    const video = document.getElementById("video");
+    const progress_bar = document.getElementById("progress_bar");
+    const progress_bar_inner = document.getElementById("progress_bar_inner");
+
+    const el_width = progress_bar.offsetWidth;
+    const el_percentage = (e.offsetX / el_width) * 100;
+
+    if (progress_bar_inner)
+      progress_bar_inner.style.width = `${el_percentage}%`;
+
+    video.currentTime = (video.duration / 100) * el_percentage;
+
+    HlsPlayer.videoTime = video.currentTime;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static replay() {
+    const video = document.getElementById("video");
+    HlsPlayer.pause();
+
+    HlsPlayer.videoTime = 0;
+
+    const progress_bar_inner = document.getElementById("progress_bar_inner");
+    if (progress_bar_inner) progress_bar_inner.style.width = "0%";
+
+    clearTimeout(videoTimer);
+    videoTimer = setTimeout(function () {
+      video.currentTime = HlsPlayer.videoTime;
+      HlsPlayer.play();
+    }, 1000);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @param {*} id
+ * @param {*} time
+ */
+static addToContinueWatchingList(id, time) {
+    const video = document.getElementById("video");
+
+    if (HlsPlayer?.currentVideoUrl !== video.src) return;
+
+    let continueWatchingList = JSON.parse(
+      getItem("continueWatchingList") || "[]"
+    );
+
+    const foundVideo = continueWatchingList.find((item) => item.id === id);
+
+    if (!foundVideo) {
+      continueWatchingList.unshift({
+        id,
+        time: Math.floor(time),
+      });
+    } else {
+      continueWatchingList.forEach((item) => {
+        if (item.id === id) {
+          item.time = Math.floor(time);
+          continueWatchingList = continueWatchingList.filter(
+            (item) => item.id !== id
+          );
+          continueWatchingList.unshift({
+            id,
+            time: Math.floor(time),
+          });
+        }
+      });
+    }
+
+    setItem("continueWatchingList", JSON.stringify(continueWatchingList));
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @param {*} id
+ */
+static removeContinueWatchingList(id) {
+    let continueWatchingList = JSON.parse(
+      getItem("continueWatchingList") || "[]"
+    );
+
+    continueWatchingList = continueWatchingList.filter(
+      (item) => item.id !== id
+    );
+
+    setItem("continueWatchingList", JSON.stringify(continueWatchingList));
+  }
+
+  static pause() {
+    const video = document.getElementById("video");
+
+    video.pause();
+    HlsPlayer.isPaused = true;
+
+    const play_button_parent = document.querySelector(".play-button__parent");
+    play_button_parent.innerHTML = Player.pause_button_icon;
+  }
+
+  static play() {
+    const video = document.getElementById("video");
+    video.play();
+    HlsPlayer.isPaused = false;
+
+    const play_button_parent = document.querySelector(".play-button__parent");
+    play_button_parent.innerHTML = Player.play_button_icon;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static stop() {
+
+    const video = document.getElementById("video");
+    video.currentTime = 0;
+    HlsPlayer.isPaused = true;
+    HlsPlayer.isPlaying = false;
+    video.pause();
+
+    const play_button_parent = document.querySelector(".play-button__parent");
+    play_button_parent.innerHTML = Player.pause_button_icon;
+
+    const progress_bar_inner = document.getElementById("progress_bar_inner");
+    if (progress_bar_inner) progress_bar_inner.style.width = "0%";
+
+    const videoCurrentTime =
+      document.getElementsByClassName("video-current_time");
+
+    if (videoCurrentTime &amp;&amp; videoCurrentTime.length) {
+      videoCurrentTime[0].innerHTML = "00:00";
+      videoCurrentTime[1].innerHTML = "00:00";
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static isVideoEndedEventSent = false;
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static togglePlay() {
+    const video = document.getElementById("video");
+    if (video.paused) {
+      HlsPlayer.play();
+    } else {
+      HlsPlayer.pause();
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static next() {
+    const video = document.getElementById("video");
+    HlsPlayer.pause();
+
+    clearTimeout(videoTimer);
+
+    if (HlsPlayer.videoTime + HlsPlayer.fastForward() > video.duration) {
+      HlsPlayer.videoTime = video.duration;
+    } else {
+      HlsPlayer.videoTime += HlsPlayer.fastForward();
+    }
+
+    HlsPlayer.backForwardCount = 10;
+
+    const progress = (HlsPlayer.videoTime / video.duration) * 100;
+    const progress_bar_inner = document.getElementById("progress_bar_inner");
+    if (progress_bar_inner) progress_bar_inner.style.width = `${progress}%`;
+
+    clearTimeout(videoTimer);
+    videoTimer = setTimeout(function () {
+      video.currentTime = HlsPlayer.videoTime;
+      HlsPlayer.play();
+    }, 1000);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static prev() {
+    const video = document.getElementById("video");
+    HlsPlayer.pause();
+
+    HlsPlayer.videoTime -= HlsPlayer.backForward();
+    HlsPlayer.fastForwardCount = 10;
+
+    clearTimeout(videoTimer);
+
+    const progress = (HlsPlayer.videoTime / video.duration) * 100;
+    const progress_bar_inner = document.getElementById("progress_bar_inner");
+    if (progress_bar_inner) progress_bar_inner.style.width = `${progress}%`;
+
+    clearTimeout(videoTimer);
+    videoTimer = setTimeout(function () {
+      video.currentTime = HlsPlayer.videoTime;
+      HlsPlayer.play();
+    }, 1000);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @returns {number}
+ */
+static fastForward() {
+    if (HlsPlayer.fastForwardCount &lt; 50) {
+      fastForwardTimer = setTimeout(function () {
+        HlsPlayer.fastForwardCount += 2;
+      }, 1000);
+    }
+
+    return HlsPlayer.fastForwardCount;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @returns {number}
+ */
+static backForward() {
+    if (HlsPlayer.backForwardCount &lt; 50) {
+      backForwardTimer = setTimeout(function () {
+        HlsPlayer.backForwardCount += 2;
+      }, 1000);
+    }
+
+    return HlsPlayer.backForwardCount;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static sendVideoEndEvent() {
+    if (!HlsPlayer.isVideoEndedEventSent) {
+      HlsPlayer.analytics.sendEvent("endVideo");
+      HlsPlayer.isVideoEndedEventSent = true;
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static endVideoListener() {
+    if (Player.isLiveStreaming)
+      return;
+    if (!Player.isAdPlaying) {
+      HlsPlayer.autoPlayNext();
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+detachMedia() {
+    this.hls.detachMedia();
+  }
+
+  createAdContainer() {
+    const current_channel = this.channel;
+    if (document.getElementById("ad_parent")) {
+      document.getElementById("ad_parent").remove();
+    }
+
+    const ad_parent = el("div", "ad-parent", "ad_parent");
+    const ad_overlay = el("div", "overlay");
+
+    ad_parent.appendChild(ad_overlay);
+
+    ad_overlay.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    ad_parent.style.position = "fixed";
+    ad_parent.style.zIndex = 9;
+    ad_parent.style.width = window.innerWidth + "px";
+    ad_parent.style.height = window.innerHeight + "px";
+
+    const ad_duration_parent = el(
+      "div",
+      "ad-duration-parent hidden",
+      "ad_duration_parent"
+    );
+
+    ad_duration_parent.style.zIndex = 1;
+
+    const ad_content_wrapper = el("div", "ad-content-wrapper");
+    const ad_duration_text = el("div", "ad-duration-text", "ad_duration_text");
+    const ad_total_count = el("div", "ad-total-count", "ad_total_count");
+    const ad_video_image = el("img", "ad-video-image", "ad_video_image");
+
+    const image = new Image();
+
+    image.src = current_channel.thumbnail;
+
+    image.onload = () => {
+      ad_video_image.src = current_channel.thumbnail;
+    };
+
+    image.onerror = () => {
+      ad_video_image.src = appData.graphic.defaultThumbnail;
+    };
+
+    ad_duration_parent.appendChild(ad_video_image);
+
+    ad_content_wrapper.appendChild(ad_duration_text);
+    ad_content_wrapper.appendChild(ad_total_count);
+    ad_duration_parent.appendChild(ad_content_wrapper);
+
+    ad_parent.appendChild(ad_duration_parent);
+
+    const ad_log_view = el(
+      "div",
+      "ad-log-parent",
+      "ad_log_parent"
+    );
+    ad_log_view.style.zIndex = 1;
+
+    ad_parent.appendChild(ad_log_view);
+
+    document.getElementById("video_parent").appendChild(ad_parent);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+render() {
+    const app_loader = document.getElementById("app_loader");
+    const video = document.getElementById("video");
+    const current_channel = this.channel;
+
+    if (app_loader) app_loader.classList.add("show");
+
+    this.createAdContainer();
+
+    Player.showPlayerControls(false);
+    HlsPlayer.currentVideoUrl = current_channel.streamURL;
+
+    if (this.useHls) {
+      if (this.hls) {
+        this.hls.destroy();
+      }
+
+      this.hls = new Hls();
+      HlsPlayer.hlsPLayer = this.hls;
+
+      this.hls.attachMedia(video);
+
+      this.hls.loadSource(this.channel?.streamURL);
+      video.play();
+ 
+
+
+      video.onloadeddata = () => {
+        this.loadHandler();
+      };
+
+      video.addEventListener("playing", () => {
+        this.onPlaying();
+      });
+
+      video.addEventListener("waiting", () => {
+        this.videoWaitingHandler();
+      });
+
+      video.addEventListener("timeupdate", (e) => {
+        if (!Player.isLiveStreaming) {
+          this.timeUpdate(e);
+        }
+      });
+    } else {
+      const app_loader = document.getElementById("app_loader");
+      if (app_loader) app_loader.classList.add("show");
+
+      video.src = this.channel.streamURL;
+
+      if (this.isVideoWatchedTime) {
+        setTimeout(function () {
+          video.currentTime = this.isVideoWatchedTime;
+        }, 500);
+      }
+
+      video.play();
+
+      video.onloadeddata = () => {
+        this.loadHandler();
+      };
+
+      video.addEventListener("playing", (e) => {
+        this.onPlaying();
+      });
+
+      video.addEventListener("waiting", () => {
+        this.videoWaitingHandler();
+      });
+
+      video.addEventListener("timeupdate", (e) => {
+        this.timeUpdate(e);
+      });
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+timeUpdate() {
+    const video = document.getElementById("video");
+    if (video) {
+      const currentTime = video.currentTime;
+      const duration = video.duration;
+      const progress = (currentTime / duration) * 100;
+      const underProgressDuration = document.getElementById("duration_time");
+      const underProgressCurrentTime = document.getElementById("current_time");
+
+      if (Player.showSubtitles) {
+        Subtitles.setSubtitles(currentTime);
+      }
+
+      if (!HlsPlayer.isPaused) {
+        const progress_bar_inner =
+          document.getElementById("progress_bar_inner");
+        HlsPlayer.fastForwardCount = 0;
+        HlsPlayer.backForwardCount = 0;
+        if (progress_bar_inner) progress_bar_inner.style.width = `${progress}%`;
+        HlsPlayer.videoTime = video.currentTime;
+      }
+
+      if (underProgressDuration) {
+        if (duration) {
+          underProgressDuration.innerHTML = convertTime(duration);
+        }
+      }
+
+      if (underProgressCurrentTime) {
+        if (currentTime) {
+          underProgressCurrentTime.innerHTML = convertTime(currentTime);
+        }
+      }
+      // if ad avialable, check ad break time. and load the ads to be displayed
+      if (hasAds) {
+        let current_ad_break_index = -1;
+        for (let i = 0; i &lt; Player.ad_breaks.length; i++) {
+          let ad_break = Player.ad_breaks[i];
+          if (!isNaN(ad_break.time) &amp;&amp; currentTime >= ad_break.time &amp;&amp; !ad_break.played &amp;&amp; currentTime - ad_break.time &lt; 5)
+            current_ad_break_index = i;
+        }
+        if (current_ad_break_index > -1) {
+          if (!Player.isAdPlaying)
+            load_ima_ads(current_ad_break_index);
+        }
+      }
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+loadHandler() {
+    if (hasAds) {
+      configAdBreak();
+      this.show_ima_ads();
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+show_ima_ads() {
+    const _this = this;
+    if (Player.ad_breaks[0].time == 'start') // if pre roll, then play ad when loaded video
+      load_ima_ads(0);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+onPlaying() {
+    const app_loader = document.getElementById("app_loader");
+    if (app_loader) app_loader.classList.remove("show");
+
+    HlsPlayer.isVideoEndedEventSent = false;
+
+    HlsPlayer.isPaused = false;
+    HlsPlayer.isPlaying = true;
+
+    Player.showPlayerControls(false);
+
+    const video_loader = document.getElementById("video_loader");
+    if (video_loader) {
+      video_loader.remove();
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+videoWaitingHandler() {
+    const video_loader = document.getElementById("video_loader");
+    if (video_loader) {
+      video_loader.remove();
+      HlsPlayer.isPlaying = false;
+    }
+    Player.showPlayerControls(true);
+    HlsPlayer.showLoading();
+    HlsPlayer.fastForwardCount = 0;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static autoPlayNext() {
+
+    const video = document.getElementById("video");
+    HlsPlayer.pause();
+
+    HlsPlayer.videoTime = 0;
+
+    const progress_bar_inner = document.getElementById("progress_bar_inner");
+    if (progress_bar_inner) progress_bar_inner.style.width = "0%";
+
+    clearTimeout(videoTimer);
+
+    const next_button = document.getElementById("next_button");
+    next_button.click();
+
+    const id = video.getAttribute("data-id");
+    const continueWatchingList = JSON.parse(
+      getItem("continueWatchingList") || "[]"
+    );
+
+    const index = continueWatchingList.findIndex((item) => item.id === id);
+    // check if the video is not ad video
+
+    if (index !== -1) {
+      continueWatchingList.splice(index, 1);
+
+      setItem("continueWatchingList", JSON.stringify(continueWatchingList));
+    }
+    // }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+destroy() {
+    const app_loader = document.getElementById("app_loader");
+    if (app_loader) app_loader.classList.remove("show");
+    this.hls.destroy();
+  }
+}
+
+export default HlsPlayer;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+services:
+  app:
+    image: registry.digitalocean.com/new-backend/ctv
+    ports:
+      - "4500:4500"

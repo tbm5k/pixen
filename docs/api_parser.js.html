@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: api/parser.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: api/parser.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import Devices from "../services/deviceCenter";
+
+class Parser {
+  constructor() {
+    this.constantMacros = {
+      "[WIDTH]": window.innerWidth,
+      "[HEIGHT]": window.innerHeight,
+      "[LANGUAGE]": navigator.language,
+    };
+
+    this.sessionId = `${Date.now()}${Math.random().toString(16).substring(1)}`;
+  }
+
+  init(options) {
+    try {
+      this.setConstantsMacros(options.data);
+      return this.parse(options.urls, {}, false);
+    } catch (err) {
+    
+    }
+  }
+  /**
+ * ${getSessionId: function to get current session id}
+ *
+ * @returns {string}
+ */
+  getSessionId() {
+    return this.sessionId;
+  }
+
+  /**
+ * ${getMacro: function to get specific value from the macros such as app version, device id, OS name and etc}
+ *
+ * @param {string} macro
+ * @returns {string}
+ */
+getMacro(macro) {
+    return this.constantMacros[macro] || "";
+  }
+
+
+  /**
+ * ${setConstantsMacros: function to set the marco variables from user settings and device info}
+ *
+ * @param {*} userData
+ */
+setConstantsMacros(userData) {
+    this.constantMacros = {
+      ...this.constantMacros,
+      "[APP_VERSION]": window.settings.appSettings.version,
+      "[APP_VER]": window.settings.appSettings.version,
+      "[ADS_TRACKING]": Devices.getDeviceFieldData("getAdsTracking"),
+      "[ADS_TRACKING_NUM]": +Devices.getDeviceFieldData("getAdsTracking"),
+      "[ADMANAGER_ID]": "IMA",
+      "[DEVICE_ID]": Devices.getDeviceFieldData("getUUID"),
+      "[DEVICE_INFO]": Devices.getDeviceFieldData("getAdsTracking"),
+      "[DEVICE_TYPE]": userData.ua.deviceType,
+      "[DEFAULT_LANGUAGE]": "en",
+      "[EXTERNAL_IP]": userData.ip,
+      "[IDFA]": Devices.getDeviceFieldData("getIDFA"),
+      "[IFA]": Devices.getDeviceFieldData("getIDFA") || userData.default_IFA,
+      "[IFA_TYPE]": Devices.getDeviceFieldData("getIFAType"),
+      "[OS_NAME]": userData.ua.osName,
+      "[OS_FAMILY]": userData.ua.osFamily,
+      "[PLATFORM]": window.settings.platform,
+      "[PLAYER_ID]": "castify",
+      "[SESSION_ID]": this.sessionId,
+      "[USER_AGENT]": navigator.userAgent,
+      "[USER_CITY]": userData.geoData.cityGeoData.city,
+      "[USER_COUNTRYISOCODE]": userData.geoData.cityGeoData.countryIsoCode,
+      "[USER_REGION]": userData.geoData.cityGeoData.region,
+      "[USER_LON]": userData.geoData.cityGeoData.lon,
+      "[USER_LAT]": userData.geoData.cityGeoData.lat,
+      "[USER_CITYGEONAMEID]": userData.geoData.cityGeoData.cityGeoNameId,
+      "[USER_TIMEZONE]": userData.geoData.cityGeoData.timeZone,
+      "[USER_REGIONNAME]": userData.geoData.cityGeoData.regionName,
+      "[USER_CONTINENTCODE]": userData.geoData.cityGeoData.continentCode,
+      "[USER_COUNTRYNAME]": userData.geoData.cityGeoData.countryName,
+      "[USER_CONNCTIONTYPE]":
+        userData.geoData.connectionTypeGeoData.connectionType,
+      "[USER_ISP_ID]": userData.geoData.ispGeoData.ispId,
+      "[USER_ISP_NAME]": userData.geoData.ispGeoData.ispName,
+      "[USER_CARRIER_ID]": "",
+      "[UA_FAMILY]": userData.ua.uaFamily
+    };
+  }
+
+  /**
+ * ${parse: function to replace marcos values in the given url}
+ *
+ * @param {*} urls
+ * @param {{}} [macros={}]
+ * @param {boolean\} [changeTemporaryMacros=true]
+ * @returns {*\}
+ */
+parse(urls, macros = {}, changeTemporaryMacros = true) {
+    const changeMacro = (url) => {
+      if (!url) return "";
+      let _url = url;
+
+      const macrosInUrl = url.match(/\[([A-Z]+(_|)?)+\]/g);
+
+      if (!macrosInUrl) return url;
+
+      const _macros = {
+        ...this.constantMacros,
+        ...macros,
+      };
+
+      if (changeTemporaryMacros) {
+        Object.assign(_macros, {
+          "[TIMESTAMP]": Date.now(),
+          "[REQUEST_ID]": Math.floor(Math.random() * 1000000),
+        });
+      }
+
+      for (const regExMacro of macrosInUrl) {
+        const macroValue = _macros[regExMacro];
+        const isNullic = macroValue === null || macroValue === undefined;
+        let finalMacroValue = "";
+
+        // Before firing the url we need to remove *all* macros
+        // if we don't have data for that macro set it as empty string
+        if (changeTemporaryMacros) {
+          finalMacroValue = isNullic ? "" : encodeURIComponent(macroValue);
+        } else {
+          // if we don't need to override macros and the value is nullic, skip the current item in the loop.
+          if (isNullic) continue;
+
+          finalMacroValue = encodeURIComponent(macroValue);
+        }
+
+        _url = _url.replace(regExMacro, finalMacroValue);
+      }
+
+      return _url;
+    };
+
+    // in case we are sending only one url
+    if (typeof urls === "string") {
+      return changeMacro(urls);
+    }
+
+    // in case we are sending list of urls
+    return urls.map(changeMacro);
+  }
+}
+
+export default new Parser();
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

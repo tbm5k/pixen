@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: utils.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: utils.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { animation_start, animation_end } from "./remote/keys";
+import { Lifecycle } from "@firebolt-js/sdk";
+
+import globalAnalytics from "./services/globalAnalytics";
+import InfoModal from "./components/common/infoModal";
+import Devices from "./services/deviceCenter";
+import pages from "./remote/pages";
+import HlsPlayer from "./components/common/hls";
+import GlobalAnalytics from "./services/globalAnalytics";
+import Analytics from "./services/analytics";
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} tagName
+ * @param {*} className
+ * @param {*} id
+ * @returns {*}
+ */
+function el(tagName, className, id) {
+  var tag = document.createElement(tagName);
+
+  if (className) tag.className = className;
+
+  if (id) tag.id = id;
+
+  return tag;
+}
+
+// function scroll(list, offset, xy, time, type) {
+//   if (!time) time = 0.3;
+//   if (!type) type = "linear";
+
+//   requestAnimationFrame(function () {
+//     list.style["-webkit-transition"] = "transform " + time + "s " + type;
+//     list.style["-moz-transition"] = "transform " + time + "s " + type;
+//     list.style["-ms-transition"] = "transform " + time + "s " + type;
+//     list.style["-o-transition"] = "transform " + time + "s " + type;
+//     list.style["transition"] = "transform " + time + "s " + type;
+
+//     list.style["-webkit-transform"] = "translate" + xy + "(" + offset + ")";
+//     list.style["-moz-transform"] = "translate" + xy + "(" + offset + ")";
+//     list.style["-ms-transform"] = "translate" + xy + "(" + offset + ")";
+//     list.style["-o-transform"] = "translate" + xy + "(" + offset + ")";
+//     list.style["transform"] = "translate" + xy + "(" + offset + ")";
+
+//     // list.style.transition = "transform " + time + "s " + type;
+//     // list.style.transform = "translate" + xy + "(" + offset + ")";
+//   });
+// }
+
+Element.prototype.scroll = function (offset, xy, time, type) {
+  // animation_start();
+
+  if (!this.offset) this.offset = 0;
+
+  var self = this;
+
+  offset = parseInt(offset);
+
+  cancelAnimationFrame(this.anim);
+
+  var k = (this.offset - offset) / time;
+
+  if (k &lt; 0) k *= -1;
+
+  self.anim = requestAnimationFrame(function animate() {
+    if (self.offset == offset) return;
+    // animation_end();
+
+    if (self.offset &lt; offset) {
+      self.offset += k;
+      if (self.offset > offset) self.offset = offset;
+    } else {
+      self.offset -= k;
+      if (self.offset &lt; offset) self.offset = offset;
+    }
+
+    self.style.transform = "translate" + xy + "(" + self.offset + type + ")";
+    self.anim = requestAnimationFrame(animate);
+  });
+};
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} className
+ */
+function remove_active_class(className) {
+  var active;
+  if (!className) {
+    className = "active";
+  }
+
+  active = document.getElementsByClassName(className);
+
+  for (var i = 0; i &lt; active.length; i++) {
+    active[i].classList.remove(className);
+  }
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} items
+ * @param {*} color
+ */
+function remove_active_style(items, color) {
+  for (var i = 0; i &lt; items.length; i++) {
+    items[i].style.color = color;
+  }
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} path
+ * @returns {*}
+ */
+function detect_page(path) {
+  if (window.appData) {
+    const pages = appData.menu.pages;
+
+    let current_page = "";
+
+    const items = Object.values(pages);
+
+    if (path === "home") {
+      return items.find((page) => page.page_path === "/");
+    }
+
+    items.forEach((page) => {
+      if (path == page.page_path.split("/")[1]) {
+        current_page = page;
+      }
+    });
+
+    return current_page;
+  }
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} data
+ * @param {*} index
+ * @param {*} each_row
+ * @param {*} r
+ * @param {*} row
+ * @param {*} category_name
+ */
+function changeLastRowData(data, index, each_row, r, row, category_name) {
+  const current_row_index = row + 3;
+
+  each_row.style.top = `${current_row_index * 30.7}rem`;
+  each_row.classList.remove("hidden");
+
+  each_row.firstElementChild.innerHTML = category_name;
+
+  const each_row_children = each_row.children[1].children[index];
+
+  each_row_children.setAttribute("data-id", data.id);
+
+  const img = each_row_children.children[0].firstElementChild;
+  const title = each_row_children.children[1].firstElementChild;
+
+  requestAnimationFrame(() => {
+    // img.src = data.thumbnail;
+    img.src = window.appImages[data.id];
+
+    // img.src = window.appImages[data.id];
+
+    title.innerHTML = data.title;
+  });
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} time
+ * @returns {string}
+ */
+function convertTime(time) {
+  const hours = Math.floor(time / 3600);
+  const minutes = Math.floor((time - hours * 3600) / 60);
+  const seconds = Math.floor(time - hours * 3600 - minutes * 60);
+
+  return `${hours ? hours + ":" : ""}${minutes &lt; 10 ? "0" + minutes : minutes
+    }:${seconds &lt; 10 ? "0" + seconds : seconds}`;
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} parent
+ * @param {*} width
+ * @param {*} direction
+ * @param {*} transition
+ * @param {*} rtl
+ */
+function translate_list(parent, width, direction, transition, rtl) {
+  if (!transition) transition = "0.3s";
+  if (!direction) direction = "left";
+
+  var translate;
+
+  if (rtl) {
+    translate = `translateX(${width})`;
+  } else {
+    translate = `translateX(-${width})`;
+  }
+
+  parent.style.transition = "transform " + transition;
+  parent.style.transform = translate;
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+let wheel_interval = null;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {boolean}
+ */
+let isMoving = false;
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} e
+ * @param {*} fn
+ */
+function wheel_magic_control(e, fn) {
+  if (!isMoving) {
+    clearTimeout(wheel_interval);
+    var delta = e.deltaY || e.detail || e.wheelDelta;
+    if (delta > 0) {
+      fn.down();
+      isMoving = true
+      wheel_interval = setTimeout(() => {
+        isMoving = false
+      }, 800);
+    } else {
+      fn.up();
+      isMoving = true
+      wheel_interval = setTimeout(() => {
+        isMoving = false
+      }, 800);
+    }
+  }
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function application_exit() {
+ 
+  if (window.OS == "tizen") {
+    try {
+      const globalAnalytics = new GlobalAnalytics();
+      const analytics = new Analytics(globalAnalytics);
+
+      analytics.sendEvent("exitApp");
+      window.tizen.application.getCurrentApplication().exit();
+    } catch (e) {
+   
+    }
+  } else if (window.OS == "webos") {
+    const globalAnalytics = new GlobalAnalytics();
+    const analytics = new Analytics(globalAnalytics);
+
+    analytics.sendEvent("exitApp");
+
+    window.close();
+  } else {
+    const globalAnalytics = new GlobalAnalytics();
+    const analytics = new Analytics(globalAnalytics);
+
+    analytics.sendEvent("exitApp");
+   
+
+    window.close();
+  }
+  // }
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} key
+ * @returns {*}
+ */
+function get_word(key) {
+  return window.appData.translations[key] || key;
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} item
+ * @returns {*}
+ */
+function is_restricted(item) {
+  const isoCode = window.settings.appSettings.isoCode;
+  // const isoCode = "AM";
+
+  if (item &amp;&amp; item.restrictions &amp;&amp; item.restrictions.geos) {
+    const { whitelist_countries, blacklist_countries } = item.restrictions.geos;
+
+    if (whitelist_countries) return !whitelist_countries.includes(isoCode);
+
+    if (blacklist_countries) return blacklist_countries.includes(isoCode);
+  }
+
+  return false;
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} key
+ * @returns {*}
+ */
+function getItem(key) {
+  if (window.localStorage) {
+    return localStorage.getItem(key);
+  }
+
+  return sessionStorage.getItem(key);
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} key
+ * @param {*} value
+ * @returns {*}
+ */
+function setItem(key, value) {
+  if (window.localStorage) {
+    return localStorage.setItem(key, value);
+  }
+
+  sessionStorage.setItem(key, value);
+}
+
+window.onoffline = function () {
+  const infoModalOptions = {
+    title:
+      "You are not connected to the internet, please check your internet connection",
+    hideButton: true,
+    fullScreen: true,
+  };
+  new InfoModal(infoModalOptions);
+
+  const video = document.getElementById("video");
+
+  if (pages.current === "player") {
+    video.pause();
+  }
+};
+
+window.ononline = function () {
+  new InfoModal({
+    title: "Network connection restored",
+    hideAfterRestore: true,
+  });
+
+  const video = document.getElementById("video");
+
+  if (pages.current === "player") {
+    video.play();
+  }
+};
+
+document.addEventListener("visibilitychange", function () {
+  const platformName = Devices.platformInstance.name;
+  const video = document.getElementById("video");
+
+  if (document.visibilityState === "hidden") {
+    if (pages.current === "player") {
+      if (platformName === "samsung") {
+        window.webapis.avplay.suspend();
+      } else {
+        video.pause();
+      }
+    }
+  } else {
+    if (pages.current === "player") {
+      if (platformName === "samsung") {
+        window.webapis.avplay.resume();
+      } else {
+        video.play();
+      }
+    }
+  }
+});
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} item
+ * @param {*} itemsTitle
+ * @param {*} index
+ * @param {*} prevItem
+ */
+function set_item_color(item, itemsTitle, index, prevItem) {
+  const firstPlaylist = Object.values(appData.playlists)[0];
+
+  let itemTitleColor = "#fff";
+
+  if (firstPlaylist) {
+    if (firstPlaylist.graphic &amp;&amp; firstPlaylist.graphic.title_color) {
+      itemTitleColor = firstPlaylist.graphic.title_color;
+    } else if (firstPlaylist.title_color) {
+      itemTitleColor = firstPlaylist.title_color;
+    } else {
+      itemTitleColor = appData.graphic.mainColor;
+    }
+  }
+
+  for (let i = 0; i &lt; itemsTitle.length; i++) {
+    if (i != index) {
+      itemsTitle[i].style.color = itemTitleColor;
+    }
+  }
+
+  if (prevItem) {
+    prevItem.style.color = itemTitleColor;
+  }
+
+  if (item) {
+    if (firstPlaylist.graphic &amp;&amp; firstPlaylist.graphic.active_item_color) {
+      itemsTitle[index].style.color = firstPlaylist.graphic.active_item_color;
+    } else if (firstPlaylist.color) {
+      itemsTitle[index].style.color = firstPlaylist.active_item_color;
+    } else {
+      itemsTitle[index].style.color = appData.graphic.activeItemColor;
+    }
+  } else {
+    itemsTitle[index].style.color = "#fff";
+  }
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} titleColor
+ * @param {*} activeTitleColor
+ */
+function assignColorCode(titleColor, activeTitleColor) {
+  var styleString =
+    `
+      .channel-card__title {color: ${titleColor} !important;}
+      .active .channel-card__title {color: ${activeTitleColor} !important;}
+    `
+  var styleTag = document.createElement("style");
+  styleTag.appendChild(document.createTextNode(styleString));
+  document.head.appendChild(styleTag);
+}
+
+export {
+  el,
+  remove_active_class,
+  remove_active_style,
+  detect_page,
+  getItem,
+  setItem,
+  wheel_magic_control,
+  changeLastRowData,
+  translate_list,
+  convertTime,
+  is_restricted,
+  application_exit,
+  get_word,
+  set_item_color,
+  assignColorCode
+};
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

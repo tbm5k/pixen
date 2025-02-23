@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: remote/keys.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: remote/keys.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>// Key evetns handling
+
+import ScreenSaver from "../components/common/screenSaver";
+import { showScreenSaver, screen_saver_timeout } from "../index";
+import BrighData from "../plugins/brightData";
+
+window.KeyCode = {
+  N0: 48,
+  N1: 49,
+  N2: 50,
+  N3: 51,
+  N4: 52,
+  N5: 53,
+  N6: 54,
+  N7: 55,
+  N8: 56,
+  N9: 57,
+  NUM_PAD0: 96,
+  NUM_PAD1: 97,
+  NUM_PAD2: 98,
+  NUM_PAD3: 99,
+  NUM_PAD4: 100,
+  NUM_PAD5: 101,
+  NUM_PAD6: 102,
+  NUM_PAD7: 103,
+  NUM_PAD8: 104,
+  NUM_PAD9: 105,
+
+  RETURN: 10009,
+  RETURN_WEB: 8,
+  RETURN_WEBOS: 461,
+
+  MUTE: 449,
+  VOL_UP: 448,
+  VOL_DOWN: 447,
+  CH_UP: 427,
+  CH_DOWN: 428,
+
+  UP: 38,
+  DOWN: 40,
+  LEFT: 37,
+  RIGHT: 39,
+
+  ENTER: 13,
+
+  TOOLS: 10135,
+  PRECH: 10190,
+
+  INFO: 457,
+  EXIT: 10182,
+
+  RED: 403,
+  GREEN: 404,
+  YELLOW: 405,
+  BLUE: 406,
+
+  FAST_PREV: 412,
+  FAST_NEXT: 417,
+
+  NEXT: 10233,
+  PREV: 10232,
+
+  PAUSE: 19,
+  PLAY: 415,
+  STOP: 413,
+  PLAYPAUSE: 10252,
+
+  REC: 416,
+  DONE: 65376,
+  CANCEL: 65385,
+
+  // web
+  SPACE: 32,
+};
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {boolean}
+ */
+var is_animation = false;
+
+/**
+ * ${1:Description placeholder}
+ */
+var animation_end_function = function () {};
+
+/**
+ * ${1:Description placeholder}
+ */
+function animation_start() {
+  is_animation = true;
+
+  animation_end_function = function () {};
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function animation_end() {
+  is_animation = false;
+  animation_end_function();
+}
+
+document.onkeydown = function (e) {
+  clearInterval(screen_saver_timeout);
+  if (window.screen_saver) {
+    ScreenSaver.hide();
+  }
+
+  const screen_saver_time = window.appData?.graphic.screen_saver_time_on;
+
+  if (+screen_saver_time) {
+    showScreenSaver(+screen_saver_time);
+  }
+
+  if (!is_animation) {
+    check_key(e);
+  } else {
+    animation_end_function = function () {
+      check_key(e);
+    };
+  }
+};
+
+document.onkeyup = function () {
+  animation_end_function = function () {};
+};
+
+document.onmousemove = function () {
+  clearInterval(screen_saver_timeout);
+  if (window.screen_saver) {
+    ScreenSaver.hide();
+  }
+  const screen_saver_time = window.appData?.graphic.screen_saver_time_on;
+  if (+screen_saver_time) {
+    showScreenSaver(+screen_saver_time);
+  }
+};
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} e
+ */
+function check_key(e) {
+  var key = e.keyCode;
+  var name = "";
+
+  e.keyName = e.code;
+
+  switch (key) {
+    case KeyCode.N0:
+    case KeyCode.NUM_PAD0:
+      name = "0";
+      break;
+
+    case KeyCode.N1:
+    case KeyCode.NUM_PAD1:
+      name = "1";
+      break;
+
+    case KeyCode.N2:
+    case KeyCode.NUM_PAD2:
+      name = "2";
+      break;
+
+    case KeyCode.N3:
+    case KeyCode.NUM_PAD3:
+      name = "3";
+      break;
+
+    case KeyCode.N4:
+    case KeyCode.NUM_PAD4:
+      name = "4";
+      break;
+
+    case KeyCode.N5:
+    case KeyCode.NUM_PAD5:
+      name = "5";
+      break;
+
+    case KeyCode.N6:
+    case KeyCode.NUM_PAD6:
+      name = "6";
+      break;
+
+    case KeyCode.N7:
+    case KeyCode.NUM_PAD7:
+      name = "7";
+      break;
+
+    case KeyCode.N8:
+    case KeyCode.NUM_PAD8:
+      name = "8";
+      break;
+
+    case KeyCode.N9:
+    case KeyCode.NUM_PAD9:
+      name = "9";
+      break;
+
+    case KeyCode.EXIT:
+      name = "exit";
+      break;
+
+    case KeyCode.RETURN:
+    case KeyCode.RETURN_WEB:
+    case KeyCode.RETURN_WEBOS:
+      name = "back";
+      break;
+
+    case KeyCode.MUTE:
+      name = "mute";
+      break;
+
+    case KeyCode.VOL_UP:
+      name = "volume_up";
+      break;
+
+    case KeyCode.VOL_DOWN:
+      name = "volume_down";
+      break;
+
+    case KeyCode.CH_UP:
+      name = "channel_up";
+      break;
+
+    case KeyCode.CH_DOWN:
+      name = "channel_down";
+      break;
+
+    case KeyCode.UP:
+      name = "up";
+      break;
+
+    case KeyCode.DOWN:
+      name = "down";
+      break;
+
+    case KeyCode.LEFT:
+      if (window.appData &amp;&amp; window.appData.graphic.rtl) {
+        name = "right";
+      } else {
+        name = "left";
+      }
+      break;
+
+    case KeyCode.RIGHT:
+      if (window.appData &amp;&amp; window.appData.graphic.rtl) {
+        name = "left";
+      } else {
+        name = "right";
+      }
+      break;
+
+    case KeyCode.ENTER:
+      name = "ok";
+      break;
+
+    case KeyCode.TOOLS:
+      name = "tools";
+      break;
+
+    case KeyCode.PRECH:
+      name = "prech";
+      break;
+
+    case KeyCode.INFO:
+      name = "info";
+      break;
+
+    case KeyCode.EXIT:
+      name = "exit";
+      break;
+
+    case KeyCode.RED:
+      name = "red";
+      break;
+
+    case KeyCode.GREEN:
+      name = "green";
+      break;
+
+    case KeyCode.YELLOW:
+      name = "yellow";
+      break;
+
+    case KeyCode.BLUE:
+      name = "blue";
+      break;
+
+    case KeyCode.FAST_PREV:
+      name = "fast_prev";
+      break;
+
+    case KeyCode.FAST_NEXT:
+      name = "fast_next";
+      break;
+
+    case KeyCode.PREV:
+      name = "prev";
+      break;
+
+    case KeyCode.NEXT:
+      name = "next";
+      break;
+
+    case KeyCode.PAUSE:
+      name = "pause";
+      break;
+
+    case KeyCode.PLAY:
+      name = "play";
+      break;
+
+    case KeyCode.STOP:
+      name = "stop";
+      break;
+
+    case KeyCode.PLAYPAUSE:
+      name = "playPause";
+      break;
+
+    case KeyCode.REC:
+      name = "rec";
+      break;
+
+    case KeyCode.DONE:
+      name = "done";
+      break;
+
+    case KeyCode.CANCEL:
+      name = "cancel";
+      break;
+
+    case KeyCode.SPACE:
+      name = "space";
+      break;
+  }
+
+  if (name) e.keyName = name;
+
+  keydown(e);
+}
+
+function keydown(e) {
+  if (BrighData.isVisible) return true;
+
+  var method = e.keyName;
+
+  function search_method(obj) {
+    try {
+      if (obj["keydown"] &amp;&amp; obj["keydown"](method, e)) return;
+
+      if (typeof obj[method] != "function" &amp;&amp; obj.current)
+        search_method(obj[obj.current]);
+      else if (obj[method]) obj[method](e);
+    } catch (e) {
+  
+    }
+  }
+
+  search_method(controles);
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function move() {
+  keydown({ keyName: "move" });
+}
+
+export { move, keydown, animation_start, animation_end };
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

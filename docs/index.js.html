@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: index.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: index.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>require("url-search-params-polyfill");
+import { Discovery } from "@firebolt-js/sdk";
+
+
+import pages from "./remote/pages.js";
+import Sidebar from "./layouts/sidebar.js";
+import ScreenSaver from "./components/common/screenSaver.js";
+import Player from "./pages/player.js";
+import { getAppData } from "./api/request.js";
+import "./styles/index.css";
+import { el, getItem, is_restricted, setItem, assignColorCode } from "./utils.js";
+import channelSettings from "./settings/channelSettings.js";
+import GlobalAnalytics from "./services/globalAnalytics.js";
+import appSettings from "./data/appSettings.json";
+
+window.lg = console.log;
+window.warn = console.warn;
+
+window.OS = "";
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {{}\}
+ */
+export const cropedImages = {};
+
+window.onload = function () {
+  startApp();
+};
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @export
+ * @param {*} customHash
+ */
+export function startApp(customHash) {
+  const APP_VERSION = appSettings.version;
+
+  if (OS == "tizen") {
+    var script = document.createElement("script");
+    script.onload = get_device_info;
+    script.async = true;
+    script.src = "$WEBAPIS/webapis/webapis.js";
+
+    document.head.appendChild(script);
+    try {
+      tizen.tvinputdevice.registerKeyBatch([
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "ChannelUp",
+        "ChannelDown",
+        "MediaRewind",
+        "MediaFastForward",
+        "MediaPause",
+        "MediaPlay",
+        "MediaStop",
+        "MediaTrackPrevious",
+        "MediaTrackNext",
+        "MediaPlayPause",
+        "ColorF0Red",
+        "ColorF1Green",
+        "ColorF2Yellow",
+        "ColorF3Blue",
+        "ChannelList",
+      ]);
+    } catch (e) {
+    }
+  } else {
+    var script = document.createElement("script");
+    script.onload = getDeviceInfo();
+    script.src = "webOSTV.js";
+
+    document.head.appendChild(script);
+  }
+
+  if (window.tizen) {
+    const webapisScript = document.createElement("script");
+    webapisScript.src = "$WEBAPIS/webapis/webapis.js";
+    webapisScript.async = true;
+    document.head.appendChild(webapisScript);
+  }
+
+  // add comcast script
+  loadImaSdk();
+
+  createStaticElements();
+
+  const app_version = document.createElement("p");
+  app_version.classList.add("app-version");
+  app_version.innerHTML = `V${APP_VERSION}`;
+
+  document.body.appendChild(app_version);
+
+  const app_loader = document.getElementById("app_loader");
+  if (app_loader) app_loader.classList.add("show");
+
+  const init = async () => {
+    const data = await getAppData(customHash);
+
+    if (data.appJson) {
+      const hash = data.appJson.Info.hash;
+      const { video: videoDeepLink, source } = window.settings?.deepLinkData;
+
+      entInfo();
+
+      const globalAnalytics = new GlobalAnalytics();
+      globalAnalytics.sendEvent("openApp", {
+        is_deeplink: !!videoDeepLink,
+        content_id: videoDeepLink,
+        source,
+      });
+
+      const localHash = getItem("hash");
+
+      if (localHash &amp;&amp; localHash != hash) {
+        if (localStorage) {
+          localStorage.clear();
+        }
+      }
+
+      setItem("hash", hash);
+
+      window.appData = data.appJson;
+      window.appData.translations = data.translation;
+
+      const firstPlaylist = Object.values(window.appData.playlists)[0];
+      let itemTitleColor = "#fff", activeTitleColor = '#111';
+      if (firstPlaylist) {
+        if (firstPlaylist.graphic &amp;&amp; firstPlaylist.graphic.title_color) {
+          itemTitleColor = firstPlaylist.graphic.title_color;
+        } else if (firstPlaylist.title_color) {
+          itemTitleColor = firstPlaylist.title_color;
+        } else {
+          itemTitleColor = appData.graphic.mainColor;
+        }
+      }
+      if (firstPlaylist.graphic &amp;&amp; firstPlaylist.graphic.active_item_color) {
+        activeTitleColor = firstPlaylist.graphic.active_item_color;
+      } else if (firstPlaylist.color) {
+        activeTitleColor = firstPlaylist.active_item_color;
+      } else {
+        activeTitleColor = appData.graphic.activeItemColor;
+      }
+      assignColorCode(itemTitleColor, activeTitleColor);
+
+      // window.appData.content["16891758"].show_ads = false;
+
+      let playlists = window.appData.playlists, restricted_content_ids = [];
+      for (let key in playlists) {
+        window.appData.playlists[key].itemIds = window.appData.playlists[
+          key
+        ].itemIds.filter((id) => {
+          return window.appData.content[id];
+        });
+        if (is_restricted(playlists[key])) {
+          restricted_content_ids = restricted_content_ids.concat(playlists[key].itemIds);
+          delete window.appData.playlists[key];
+        }
+      }
+
+      // latest change
+      for (let key in window.appData.content) {
+        if (is_restricted(window.appData.content[key]) || restricted_content_ids.includes(key)) {
+          delete window.appData.content[key];
+        }
+      }
+
+
+      if (appData.graphic.backgroundImg) {
+        document.body.style.backgroundImage = `url(${appData.graphic.backgroundImg})`;
+      } else if (appData.graphic.backgroundColor) {
+        document.body.style.backgroundColor = appData.graphic.backgroundColor;
+      }
+
+      if (appData.graphic.rtl) {
+        document.body.classList.add("rtl");
+      }
+
+      const screen_saver_time = appData.graphic.screen_saver_time_on;
+
+      if (+screen_saver_time) {
+        const screenSaver = new ScreenSaver();
+        screenSaver.render();
+        showScreenSaver(+screen_saver_time);
+      }
+
+      const video_loader_img = window.appData?.graphic?.loader_image;
+      const loader_parent = document.getElementById("loader_parent");
+
+      if (video_loader_img) {
+        loader_parent.innerHTML = "";
+        const loader_img = document.createElement("img");
+        loader_img.src = video_loader_img;
+        loader_img.classList.add("loader-img");
+        loader_parent.appendChild(loader_img);
+      }
+
+      const img = new Image();
+      img.src = appData.graphic.splashScreen;
+      // img.crossOrigin = "anonymous";
+      img.onload = () => {
+        showSplashScreen(appData.graphic.splashScreen, () => {
+          const deepLinkData = window.settings?.deepLinkData || {};
+          const queries = window.location.search;
+          // const urlParams = new URLSearchParams(queries);
+          // const id = urlParams.get("id");
+          // write function that can parse url params instead of url search params
+          const id = queries.split("=")[1];
+
+          if (id) deepLinkData.video = id;
+
+          if (!appData.graphic.is_player_app) {
+            var sidebar = new Sidebar();
+            sidebar.mounted();
+          }
+
+          let foundVideo = null;
+          let entities = null;
+
+          if (deepLinkData?.video) {
+            foundVideo = appData.content[deepLinkData.video];
+            entities = findEntities(deepLinkData.video);
+          }
+
+          if (foundVideo) {
+            pages.set_current("player");
+            const player = new Player(foundVideo, entities);
+            player.render();
+          } else {
+            pages.set_current("home");
+          }
+
+          const app_loader = document.getElementById("app_loader");
+          if (app_loader) app_loader.classList.remove("show");
+        });
+      };
+
+      const [brighData] = channelSettings.getPlugins("brighData");
+
+      if (brighData) {
+        brighData
+          .init({
+            app_name: appData.graphic.appName,
+            app_logo: appData.graphic.appLogo,
+          })
+          .then(() => {
+            if (
+              brighData?.tag?.status == "true" &amp;&amp;
+              brighData?.status &amp;&amp;
+              !brighData?.status?.consent
+            ) {
+              brighData.enable();
+            }
+          })
+          .catch((err) => {
+            console.error(err, "-----");
+          });
+      }
+    } else {
+      // display error
+    }
+  };
+
+  init();
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function loadImaSdk() {
+  const imaSdkScript = document.createElement("script");
+  imaSdkScript.src = "http://imasdk.googleapis.com/js/sdkloader/ima3.js";
+  imaSdkScript.defer = true;
+  document.head.appendChild(imaSdkScript);
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function createStaticElements() {
+  const sidebar_root = el("div", "sidebar-root", "sidebar_root");
+
+  const keyboard_root = el("div", "keyboard-root", "keyboard_root");
+
+  const popup = el("div", "popup", "popup");
+
+  const video_loader_img = window.appData?.graphic?.loader_image;
+
+  const app_loader_parent = el("div", "app-loader", "app_loader");
+  const loader_parent = el("div", "loader-parent", "loader_parent");
+  const loader_item1 = el("div", "loader-item1", "loader_item1");
+  const loader_item2 = el("div", "loader-item2", "loader_item2");
+
+  const modal_root = el("div", "modal-root", "modal_root");
+  const info_modal = el("div", "info-modal", "info_modal");
+
+  if (video_loader_img) {
+    const loader_img = el("img", "loader-img", "loader_img");
+    loader_img.src = video_loader_img;
+
+    loader_parent.appendChild(loader_img);
+  } else {
+    loader_parent.appendChild(loader_item1);
+    loader_parent.appendChild(loader_item2);
+  }
+
+  app_loader_parent.appendChild(loader_parent);
+
+  document.body.insertAdjacentElement("afterbegin", sidebar_root);
+  document.body.appendChild(keyboard_root);
+  document.body.appendChild(popup);
+  document.body.appendChild(app_loader_parent);
+  document.body.appendChild(modal_root);
+  document.body.appendChild(info_modal);
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} img
+ * @param {*} callback
+ */
+function showSplashScreen(img, callback) {
+  const splash_screen = document.createElement("div");
+  const app_version = document.querySelector(".app-version");
+  splash_screen.classList.add("splash-screen");
+  splash_screen.style.backgroundImage = `url(${img})`;
+  document.body.appendChild(splash_screen);
+
+  setTimeout(function () {
+    splash_screen.remove();
+    app_version.remove();
+    callback();
+  }, 500);
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+export let screen_saver_timeout = null;
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} time
+ */
+export const showScreenSaver = (time) => {
+  screen_saver_timeout = setInterval(() => {
+    if (!ScreenSaver.isScreenSaverVisible &amp;&amp; pages.current !== "player") {
+      ScreenSaver.show();
+    }
+  }, time * 1000);
+};
+
+/**
+ * ${1:Description placeholder}
+ */
+function getDeviceInfo() {
+  if (window.tizen) {
+    window.OS = "tizen";
+  } else {
+    if (window.webOS &amp;&amp; window.webOS.platform &amp;&amp; window.webOS.platform.tv) {
+      window.OS = "webOS";
+    } else {
+      window.OS = "web";
+    }
+  }
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {string} [videoId=""]
+ * @returns {{}\}
+ */
+function findEntities(videoId = "") {
+  const entityArr = [];
+
+  videoId = videoId.toString();
+
+
+  for (let i = 0; i &lt; Object.keys(appData.playlists).length; i++) {
+    if (
+      appData.playlists[Object.keys(appData.playlists)[i]].itemIds.includes(
+        videoId
+      )
+    ) {
+      entityArr.push(
+        appData.playlists[Object.keys(appData.playlists)[i]].entity_id
+      );
+    }
+  }
+
+  return entityArr;
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function entInfo() {
+  Discovery.entityInfo(function (parameters) {
+  
+    return Promise.resolve({
+      expires: "2025-01-01T00:00:00.000Z",
+      entity: {
+        identifiers: {
+          entityId: "14259747",
+        },
+        entityType: "program",
+        programType: "movie",
+        title: "Cool Runnings ---",
+        synopsis:
+          "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Pulvinar sapien et ligula ullamcorper malesuada proin libero nunc.",
+        releaseDate: "1993-01-01T00:00:00.000Z",
+        contentRatings: [
+          {
+            scheme: "US-Movie",
+            rating: "PG",
+          },
+          {
+            scheme: "CA-Movie",
+            rating: "G",
+          },
+        ],
+        waysToWatch: [
+          {
+            identifiers: {
+              assetId: "123",
+            },
+            expires: "2025-01-01T00:00:00.000Z",
+            entitled: true,
+            entitledExpires: "2025-01-01T00:00:00.000Z",
+            offeringType: "buy",
+            price: 2.99,
+            videoQuality: ["UHD"],
+            audioProfile: ["dolbyAtmos"],
+            audioLanguages: ["en"],
+            closedCaptions: ["en"],
+            subtitles: ["es"],
+            audioDescriptions: ["en"],
+          },
+        ],
+      },
+    });
+  })
+    .then((success) => {
+  
+    })
+    .catch((error) => {
+
+    });
+
+;
+
+  window.dis = Discovery;
+
+  Discovery.watchNext(function (parameters) {
+   
+    return Promise.resolve({
+      expires: "2025-01-01T00:00:00.000Z",
+      watchNext: [
+        {
+          identifiers: {
+            entityId: "14259747",
+          },
+          expires: "2025-01-01T00:00:00.000Z",
+          entitled: true,
+          entitledExpires: "2025-01-01T00:00:00.000Z",
+          offeringType: "buy",
+          price: 2.99,
+          videoQuality: ["UHD"],
+          audioProfile: ["dolbyAtmos"],
+          audioLanguages: ["en"],
+          closedCaptions: ["en"],
+          subtitles: ["es"],
+          audioDescriptions: ["en"],
+        },
+      ],
+    });
+  })
+    .then((success) => {
+    
+    })
+    .catch((error) => {
+
+    });
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

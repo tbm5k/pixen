@@ -1,0 +1,26 @@
+.under-maintenance {
+    background: #000;
+    text-align: center;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.under-maintenance-content {
+    width: 50%;
+    margin: 0 auto;
+}
+
+.under-maintenance-title, .under-maintenance-description {
+    margin-bottom: 50px;
+    color: #fff;
+    font-size: 50px;
+    font-weight: 500;
+}
+
+.under-maintenance-logo {
+    height: 70px;
+}

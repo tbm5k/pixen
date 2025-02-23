@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: components/common/channelsList.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: components/common/channelsList.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import ChannelCard from "./channelCard";
+import { el, getItem, wheel_magic_control } from "../../utils";
+import controles from "../../remote/controles";
+import HlsPlayer from "./hls";
+import HomeHeader from "../home/homeHeader";
+import HomePage from "../../pages/home";
+import Player from "../../pages/player";
+
+class ChannelsList {
+  constructor(options) {
+    this.activeIndex = options?.activeIndex || 0;
+    this.entityArray = options.entityArray;
+    this.className = options.className;
+    this.cardMouseOverHandler = options.cardMouseOver;
+    this.listMouseOverHandler = options.listMouseOver;
+    this.myListArray = [];
+    this.continueWatchingArray = [];
+    this.checkMyList();
+    this.checkContinueWatching();
+    this.cardClickHandler = null;
+    this.cardClickHandler = options.cardClickHandler;
+    this.channelListCallback = options.channelListCallback;
+    this.isMovieCarousel = false; // for positioning the channels list
+    this.is_movie_carousel = false; // for checking if the current channel type is movie_carousel
+
+    ChannelsList.cardOnClick = this.cardClickHandler;
+    ChannelsList.cardOnMouseOver = this.cardMouseOver;
+
+    this.startRow = pages.previous == "home" ? controles.main.home.row : 0;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {number}
+ */
+static startRow = 0;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {number}
+ */
+static endRow = 5;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {number}
+ */
+static currentRow = 0;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static isMyListVisible = false;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {{}\}
+ */
+static channelsData = [];
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {*}
+ */
+static cardOnClick = null;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {*}
+ */
+static cardOnMouseOver = null;
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @param {*} item
+ * @param {*} i
+ * @param {*} cardClickHandler
+ * @returns {*}
+ */
+static renderRows(item, i, cardClickHandler) {
+    let row_counter = 0;
+
+    if (item &amp;&amp; item.itemIds &amp;&amp; item.itemIds.length) {
+      const channel_list_item = el("div", "channels-list__item");
+
+
+      const channel_list_content = el("div", "channels-list__content");
+      channel_list_content.style.width = `${item.itemIds.length * 32.6}rem`;
+
+      channel_list_content.setAttribute("active_index", 0);
+      channel_list_item.setAttribute("entity_id", item.entity_id);
+      channel_list_content.setAttribute("entity_id", item.entity_id);
+
+      const category_name = el("h2", "category-name");
+      category_name.style.color = item.title_color;
+      category_name.innerHTML = item.name;
+
+      if (item.keyword === "movie_carousel") {
+        channel_list_content.classList.add("movie-carousel");
+        this.isMovieCarousel = true;
+      }
+
+      if (item.keyword === "movie_carousel") {
+        this.is_movie_carousel = true;
+      } else {
+        this.is_movie_carousel = false;
+      }
+
+      let render_count = 8;
+      if (this.startRow == i &amp;&amp; controles.main.home.index > render_count)
+        render_count = Math.ceil((controles.main.home.index + 1) / 8) * 8
+      const render_index = this.startRow == i ? controles.main.home.index : 0
+      for (let index = render_index; index &lt; render_count; index++) {
+        const channel_el = appData.content[item.itemIds[index]];
+        const channel_card = ChannelsList.renderCardHandler(
+          channel_el,
+          index,
+          row_counter,
+          cardClickHandler
+        );
+        if (channel_card) {
+          channel_list_content.appendChild(channel_card);
+        }
+        if (this.channelListCallback) {
+          this.channelListCallback(this.isMovieCarousel);
+        }
+      }
+
+      row_counter++;
+
+      channel_list_item.appendChild(category_name);
+
+      channel_list_item.appendChild(channel_list_content);
+
+      return channel_list_item;
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @param {*} channel_el
+ * @param {*} index
+ * @param {*} row_counter
+ * @param {*} cardClickHandler
+ * @returns {*}
+ */
+static renderCardHandler(channel_el, index, row_counter, cardClickHandler) {
+    let channel_card = null;
+
+    if (channel_el) {
+      channel_card = new ChannelCard({
+        id: channel_el.id,
+        title: channel_el.title,
+        description: channel_el.description,
+        thumbnail: channel_el.thumbnail,
+        thumbnail_playlist: channel_el.thumbnail_playlist,
+        isLive: channel_el.is_live_streaming,
+        index,
+        row: row_counter,
+        videoDuration: channel_el.videoDuration,
+        resolution: channel_el.resolution,
+        parental_control: channel_el.parental_control,
+        isMovieCarousel: this.is_movie_carousel,
+        content_type: channel_el.content_type,
+        cardClickHandler: (elem) => cardClickHandler ? cardClickHandler(channel_el) : () => { ChannelsList.cardOnClick(channel_el) },
+        cardMouseOver: (idx, data, target) =>
+          ChannelsList.cardOnMouseOver(idx, data, target),
+      }).render();
+    }
+    return channel_card;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} item
+ * @returns {*}
+ */
+renderMyList(item) {
+    const channel_list_item = el("div", "channels-list__item");
+
+    channel_list_item.style.position = "static";
+
+    channel_list_item.style.top = 0;
+
+    const channel_list_content = el("div", "channels-list__content empty");
+    channel_list_content.setAttribute("active_index", 0);
+    channel_list_content.setAttribute("entity_id", item.entity_id);
+    const category_name = el("h2", "category-name");
+    const empty_text = el("p", "empty-list__text", "empty_text");
+    empty_text.innerHTML = "Everything you added to your list will be here";
+
+    channel_list_content.appendChild(empty_text);
+    category_name.style.color = item.title_color;
+    category_name.innerHTML = item.name;
+    channel_list_item.appendChild(category_name);
+    channel_list_item.appendChild(channel_list_content);
+    return channel_list_item;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} item
+ * @returns {*}
+ */
+renderContinueWatchingList(item) {
+    const channel_list_item = el("div", "channels-list__item");
+
+    channel_list_item.style.position = "static";
+
+    channel_list_item.style.top = 0;
+
+    const channel_list_content = el("div", "channels-list__content empty");
+    channel_list_content.setAttribute("active_index", 0);
+    channel_list_content.setAttribute("entity_id", item.entity_id);
+    const category_name = el("h2", "category-name");
+
+    category_name.style.color = item.title_color;
+    category_name.innerHTML = item.name;
+    channel_list_item.appendChild(category_name);
+    channel_list_item.appendChild(channel_list_content);
+    return channel_list_item;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} suffix
+ * @returns {*}
+ */
+render(suffix) {
+    let id = 'channels_list_parent'
+    if (suffix)
+      id = "channels_list_parent" + "_" + suffix;
+
+
+    const channels_list_parent = el(
+      "div",
+      "channels-list__parent",
+      id,
+    );
+
+    if (this.className) {
+      channels_list_parent.classList.add(this.className);
+    }
+
+    let appPlaylists = [];
+
+    if (this.entityArray.length) {
+      this.entityArray.forEach((elem) => {
+        if (appData.playlists[elem])
+          appPlaylists.push(appData.playlists[elem]);
+      });
+    }
+
+    let channels_data = appPlaylists;
+
+    const playlists = Object.values(appPlaylists);
+    const myList = playlists.find((item) => item.feature_client === "my_list");
+    const continueWatching = playlists.find(
+      (item) => item.feature_client === "continue_watching"
+    );
+
+    if (myList) {
+      myList.itemIds = this.myListArray;
+      ChannelsList.isMyListVisible = true;
+    }
+
+    if (continueWatching) {
+      continueWatching.itemIds = this.continueWatchingArray;
+    }
+
+    let sortedChannelsData = channels_data.filter(
+      (item) => item.feature_client !== "my_list"
+    );
+
+    if (myList) {
+      sortedChannelsData.unshift(myList);
+    }
+
+    if (continueWatching) {
+      sortedChannelsData = sortedChannelsData.filter(
+        (item) => item.feature_client !== "continue_watching"
+      );
+      sortedChannelsData.unshift(continueWatching);
+    }
+
+    ChannelsList.channelsData = sortedChannelsData;
+    if (pages.current == 'home') {
+      HomePage.channelsData = sortedChannelsData;
+      window.home_channels_data = sortedChannelsData;
+    }
+    else if (pages.current == 'player')
+      Player.channelsData = sortedChannelsData;
+
+
+    let itemsLength = sortedChannelsData.length
+
+    for (let i = this.startRow; i &lt; itemsLength; i++) {
+      const item = sortedChannelsData[i];
+      if (item.itemIds?.length) {
+        channels_list_parent.appendChild(ChannelsList.renderRows(item, i, this.cardClickHandler.bind(this)));
+      } else {
+        if (item.feature_client === "my_list" &amp;&amp; this.myListArray.length) {
+          channels_list_parent.appendChild(this.renderMyList(item));
+        }
+
+        if (
+          item.feature_client === "continue_watching" &amp;&amp;
+          this.continueWatchingArray.length
+        ) {
+          if (item) {
+            channels_list_parent.appendChild(
+              this.renderContinueWatchingList(item)
+            );
+          }
+        }
+      }
+    }
+
+    channels_list_parent.onwheel = (e) => {
+      switch (pages.current) {
+        case "player":
+          wheel_magic_control(e, controles.player.player_list);
+          break;
+        default:
+          wheel_magic_control(e, controles.main.home);
+          break;
+      }
+    };
+
+    channels_list_parent.onmouseenter = (e) => {
+      e.stopPropagation();
+      if (this.listMouseOverHandler) {
+        this.listMouseOverHandler(true);
+      }
+    };
+
+    channels_list_parent.onmouseleave = (e) => {
+      e.stopPropagation();
+      if (this.listMouseOverHandler) {
+        this.listMouseOverHandler(false);
+      }
+    };
+
+    return channels_list_parent;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+checkMyList() {
+    if (getItem("myList")) {
+      const myListArr = JSON.parse(getItem("myList") || "[]");
+      this.myListArray = myListArr;
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+checkContinueWatching() {
+    if (getItem("continueWatchingList")) {
+      const continueWatchingArr = JSON.parse(
+        getItem("continueWatchingList") || "[]"
+      );
+      if (continueWatchingArr &amp;&amp; continueWatchingArr.length > 0) {
+        continueWatchingArr.forEach((item) => {
+          if (item.time) {
+            const channel = appData.content[item.id];
+
+            if (channel) {
+              this.continueWatchingArray.push(channel.id);
+            }
+          }
+        });
+      }
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} item
+ */
+cardClickHandler = (item) => {
+    const channel = appData.content[item.id];
+    const nextChannel =
+      appData.content[Object.keys(appData.content)[item.index + 1]];
+
+    if (pages.current == "player" &amp;&amp; !Player.isLiveStreaming) {
+      const video = document.getElementById("video");
+      const id = video.getAttribute("data-id");
+
+      if (!channel.is_live_streaming) {
+        HlsPlayer.addToContinueWatchingList(id, video.currentTime);
+      }
+    }
+
+    pages.set_current("player");
+    window.player_obj = new Player(channel, nextChannel);
+    window.player_obj.render();
+  };
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} idx
+ * @param {*} data
+ * @param {*} target
+ */
+cardMouseOver = (idx, data, target) => {
+    if (this.cardMouseOverHandler) {
+      this.cardMouseOverHandler(idx, data, target);
+    }
+  };
+}
+
+export default ChannelsList;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

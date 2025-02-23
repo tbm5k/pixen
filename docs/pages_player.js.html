@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: pages/player.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: pages/player.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>// Player layout
+
+import ChannelsList from "../components/common/channelsList.js";
+import HlsPlayer from "../components/common/hls.js";
+import Subtitles from "../components/subtitles.js";
+import controles from "../remote/controles.js";
+import { el, getItem, remove_active_class } from "../utils.js";
+import VideoControles from "../components/videoControles.js";
+import GlobalAnalytics from "../services/globalAnalytics.js";
+import Analytics from "../services/analytics.js";
+
+import { initializeIMA } from "../components/ads.js";
+import channelSettings from "../settings/channelSettings.js";
+import DetailedPopup from "../components/detailedPopup.js";
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+let keydown_timer = null;
+
+class Player {
+  constructor(channel = {}, entityArray = []) {
+    this.video = document.createElement("video");
+    this.video.id = "video";
+    this.video.setAttribute("autoplay", "autoplay");
+    this.video.setAttribute("playsinline", "playsinline");
+    this.video.setAttribute("webkit-playsinline", "webkit-playsinline");
+    this.video.setAttribute("data-id", channel.id);
+    this.channel = channel;
+    this.currentRow = 0;
+
+    this.entityArray = entityArray;
+
+    this.nextChannel = this.findNextChannel(this.channel.id)[0];
+    if (Player.page_element)
+      Player.page_element.remove();
+    Player.page_element = null;
+
+    document.addEventListener("keydown", this.playerKeyDownHandler);
+
+    this.video.addEventListener("mousemove", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!Player.isAdPlaying) {
+        Player.showPlayerControls(true);
+      }
+    });
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {*}
+ */
+static currentVideo = null;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static lastChannel = false;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static isControlsVisible = true;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static isSettingsActive = false;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static isPlayerChannelsListVisible = false;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static isPlayerListVisible = false;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static isLiveStreaming = false;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static showSubtitles = false;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static hasSubtitles = false;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {boolean}
+ */
+static isAdPlaying = false;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {string}
+ */
+static play_button_icon = `
+    &lt;?xml version="1.0" encoding="iso-8859-1"?>
+    &lt;svg version="1.1" id="Layer_1" fill="#fff" class="play-button__icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+       viewBox="0 0 365 300" style="enable-background:new 0 0 365 365;" xml:space="preserve">
+    &lt;g>
+      &lt;rect x="74.5" width="73" height="365"/>
+      &lt;rect x="217.5" width="73" height="365"/>
+    &lt;/g>
+    &lt;/svg>
+    `;
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {string}
+ */
+static pause_button_icon = `
+    &lt;svg class="pause-button__icon" fill="#fff" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">&lt;title>ionicons-v5-c&lt;/title>&lt;path d="M133,440a35.37,35.37,0,0,1-17.5-4.67c-12-6.8-19.46-20-19.46-34.33V111c0-14.37,7.46-27.53,19.46-34.33a35.13,35.13,0,0,1,35.77.45L399.12,225.48a36,36,0,0,1,0,61L151.23,434.88A35.5,35.5,0,0,1,133,440Z"/>&lt;/svg>
+    `;
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {*}
+ */
+static cardClickHandler;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {{}\}
+ */
+static channelsDada = [];
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {{}\}
+ */
+static ad_breaks = [];
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {*}
+ */
+static channel = null;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {number}
+ */
+static current_ad_break_index = 0;
+
+
+  render() {
+    Player.cardClickHandler = this.cardClickHandler.bind(this);
+    const root = document.getElementById("root");
+    controles.player.player_list.index = 0;
+    controles.player.player_list.row = 0;
+
+    Player.isLiveStreaming = this.channel.is_live_streaming;
+
+    const video_parent = el("div", "video-parent", "video_parent");
+    video_parent.appendChild(this.video);
+
+    const video_controles = new VideoControles(
+      this.channel,
+      this.nextChannel,
+      this.playNextChannel.bind(this),
+      this.changeSubtitle.bind(this)
+    );
+
+    video_parent.appendChild(video_controles.renderControls());
+
+
+    const player_list_wrapper = el(
+      "div",
+      "player-list-wrapper",
+      "player_list_wrapper"
+    );
+
+    if (this.channel.content_type === "audio") {
+      this.radioContent(this.channel);
+    } else {
+      this.video.classList.remove("audio");
+      this.video.backgroundImage = "none";
+    }
+
+    const player_overlay = el("div", "player-overlay", "player_overlay");
+
+    const _this = this;
+    player_list_wrapper.appendChild(
+      new ChannelsList({
+        entityArray: this.entityArray,
+        className: "player",
+        cardClickHandler: this.cardClickHandler.bind(_this),
+        cardMouseOver: this.cardMouseOver.bind(_this),
+        listMouseOver: (show) => _this.listMouseOverHandler.bind(_this, show),
+      }).render('player')
+    );
+  
+
+    video_parent.appendChild(player_list_wrapper);
+    video_parent.appendChild(player_overlay);
+
+    const subtitles_parent = el("div", "subtitles-parent", "subtitles_parent");
+
+    if (this.channel.captions) {
+      video_parent.appendChild(subtitles_parent);
+
+      Player.showSubtitles = true;
+      Player.hasSubtitles = true;
+    }
+
+    root.appendChild(video_parent);
+    Player.page_element = document.getElementById('video_parent');
+    pages.page_objects.player = Player.page_element;
+
+    this.playChannel(this.channel);
+
+    const video_settings_ctrls = document.querySelectorAll(".settings-ctrl");
+    if (video_settings_ctrls.length) {
+      const detailed_info_btn = document.querySelector(".detailed-popup__item");
+
+      if (detailed_info_btn) {
+        switch (video_settings_ctrls.length) {
+          case 2:
+            detailed_info_btn.classList.add("two");
+            break;
+          case 3:
+            detailed_info_btn.classList.add("three");
+            break;
+          case 4:
+            detailed_info_btn.classList.add("four");
+            break;
+          case 5:
+            detailed_info_btn.classList.add("five");
+          default:
+            break;
+        }
+      }
+    }
+    controles.set_current("player");
+    controles.player.set_current("player_controls");
+    controles.player.player_controls.set_current("play_pause");
+    controles.player.player_controls.play_pause.move();
+
+    video_parent.addEventListener("onclick", (e) => {
+      e.stopPropagation();
+      Player.playPause();
+    });
+
+    this.video.addEventListener("click", (e) => {
+      e.stopPropagation();
+      Player.playPause();
+    });
+  }
+
+  playerKeyDownHandler(e) {
+    if (
+      pages.current == "player" &amp;&amp;
+      !Player.isAdPlaying &amp;&amp;
+      !DetailedPopup.isShown
+    ) {
+      e.stopPropagation();
+      clearTimeout(keydown_timer);
+      Player.showPlayerControls(true);
+    }
+  }
+
+  listMouseOverHandler(context, show) {
+    if (show) {
+      if (controles.player.current != "player_list") {
+      }
+    } else {
+    }
+  }
+
+  toggleBottomPanel(visibility) {
+    const bottom_panel = document.querySelector(".play-parent");
+    const addto_mylist__button = document.querySelector(
+      ".addto-mylist__button"
+    );
+
+    if (visibility) {
+      bottom_panel.classList.add("hidden");
+      addto_mylist__button.classList.remove("visible");
+    } else {
+      bottom_panel.classList.remove("hidden");
+    }
+  }
+
+ // combine all channels from the playlist
+  combineChannels() {
+    const combinedChannels = [];
+
+    for (let i = 0; i &lt; this.entityArray.length; i++) {
+      const item = this.entityArray[i];
+
+      if (appData.playlists[item]) {
+        const channelIds = appData.playlists[item].itemIds;
+        combinedChannels.push(...channelIds);
+      }
+    }
+
+    return combinedChannels;
+  }
+ // get the next channel from the playlist
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} id
+ * @returns {*}
+ */
+findNextChannel(id) {
+    const nextChannelIndex = this.combineChannels().findIndex(
+      (item) => item === id
+    );
+
+    if (nextChannelIndex === this.combineChannels().length - 1) {
+      return appData.content[this.combineChannels()[0]];
+    }
+    return [appData.content[this.combineChannels()[nextChannelIndex + 1]], nextChannelIndex];
+  }
+
+  // to play next channel
+  /**
+ * ${1:Description placeholder}
+ */
+playNextChannel() {
+    HlsPlayer.sendVideoEndEvent();
+    const nextChannel = this.findNextChannel(this.channel.id)[0];       
+    this.playChannel(nextChannel);
+    this.channel = nextChannel;
+  }
+
+  // to change subtitle
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} subtitle
+ */
+changeSubtitle(subtitle) {
+    if (this.channel.captions) {
+      const subOptions = {
+        captions: this.channel.captions,
+        selected: subtitle,
+      };
+      new Subtitles(subOptions);
+    }
+  }
+
+  reRenderVideoControles(nextChannel, afterNextChannel) {
+    const video_parent = document.getElementById("video_parent");
+
+    video_parent.removeChild(document.querySelector(".player-controls"));
+
+    const video_controles = new VideoControles(
+      nextChannel,
+      afterNextChannel,
+      this.playNextChannel.bind(this),
+      this.changeSubtitle.bind(this)
+    );
+    video_parent.appendChild(video_controles.renderControls());
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} item
+ * @param {*} context
+ */
+cardClickHandler(item, context) {
+    this.cardClick(item, context);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} item
+ * @param {*} context
+ */
+cardClick(item, context) {
+    const channel = appData.content[item.id];
+    try {
+      HlsPlayer.sendVideoEndEvent();
+    } catch (e) {
+    }
+    this.playChannel(channel)
+    if (Player.isPlayerChannelsListVisible &amp;&amp; !DetailedPopup.isShown) {
+      Player.toggleChannelsList();
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} idx
+ * @param {*} ee
+ * @param {*} target
+ */
+cardMouseOver(idx, ee, target) {
+    this.currentRow = parseInt(target.getAttribute("data-row"));
+    remove_active_class("active")
+    controles.player.player_list.index = idx;
+
+    clearTimeout(keydown_timer);
+    Player.showPlayerControls(true);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} channel
+ */
+playChannel(channel) {
+    Player.channel = channel;
+    Player.ad_breaks = [];
+    Player.current_ad_break_index = 0;
+    this.nextChannel = this.findNextChannel(channel.id)[0];
+    const videoWatchedTime = Player.isVideoWatched(channel.id);
+    const hlsPlayer = new HlsPlayer(
+      channel,
+      this.nextChannel?.streamURL,
+      channel.use_hls,
+      videoWatchedTime
+    );
+    hlsPlayer.render();
+
+    let [brighData] = channelSettings.getPlugins("brighData");
+
+    const videoEl = document.getElementById("video");
+    if (channel.show_ads == false) {
+      if (videoEl)
+        videoEl.play();
+      videoEl.removeEventListener('ended', HlsPlayer.endVideoListener);
+      videoEl.addEventListener('ended', HlsPlayer.endVideoListener);
+    } else {
+      if (!brighData || (brighData.status &amp;&amp; !brighData.status.consent) || !brighData.status) {
+        initializeIMA(videoEl, channel);
+      } else {
+        showContentPlayer(videoEl)
+      }
+    }
+    if (channel.content_type === "audio") {
+      context.radioContent(channel);
+    } else {
+      this.video.classList.remove("audio");
+      this.video.backgroundImage = "none";
+    }
+    this.reRenderVideoControles(channel, this.nextChannel);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} videoEl
+ */
+showContentPlayer(videoEl) {
+    videoEl.removeEventListener('ended', HlsPlayer.endVideoListener);
+    videoEl.addEventListener('ended', HlsPlayer.endVideoListener);
+    videoEl.play();
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} channel
+ */
+radioContent(channel) {
+    this.video.classList.add("audio");
+    const image = new Image();
+    image.src = channel.thumbnail || channel.thumbnail_playlist;
+
+    image.onload = () => {
+      this.video.style.backgroundImage = `url(${image.src})`;
+    };
+
+    image.onerror = () => {
+      this.video.style.backgroundImage = `url(${appData.graphic.defaultThumbnail})`;
+    };
+  }
+
+  static toggleChannelsList() {
+    Player.isPlayerChannelsListVisible = false;
+
+    const channels_list_parent = document.getElementById(
+      "channels_list_parent_player"
+    );
+
+    if (channels_list_parent &amp;&amp; channels_list_parent.style.transform) {
+      const channels_list_parent_translate =
+        channels_list_parent.style.transform
+          .split("(")[1]
+          .split(")")[0]
+          .replace(/px/g, "");
+
+      if (controles.player.current == "player_list") {
+        const player_list_wrapper = document.getElementById(
+          "player_list_wrapper"
+        );
+
+        player_list_wrapper.classList.remove("active-wrapper");
+        const row = controles.player.player_list.row;
+        const current_row = document.getElementById('channels_list_parent_player').querySelectorAll(".channels-list__item")[
+          row
+        ];
+
+        const row_height = current_row.offsetHeight;
+
+        channels_list_parent.scroll(
+          +channels_list_parent_translate + row_height + 50,
+          "Y",
+          0,
+          "px"
+        );
+      }
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @param {*} show
+ */
+static showPlayerControls(show) {
+    Player.isControlsVisible = true;
+    const my_list_button = document.querySelector(".addto-mylist__button");
+    const replay__button = document.querySelector(".replay__button");
+    const detailed_info_btn = document.querySelector(".detailed-popup__item");
+
+    if (my_list_button) {
+      my_list_button.classList.remove("hidden");
+    }
+
+    if (replay__button) {
+      replay__button.classList.remove("hidden");
+    }
+
+    if (detailed_info_btn) {
+      detailed_info_btn.classList.remove("hidden");
+    }
+
+    const video_parent = document.querySelector(".video-parent");
+    if(video_parent){
+      video_parent.classList.remove("hidden");
+    }
+
+    const toggle_subtitles__button = document.querySelector(
+      ".toggle-subtitles__button"
+    );
+    const sub_items = document.querySelector(".sub-items");
+
+    if (
+      toggle_subtitles__button &amp;&amp;
+      controles.current == "player" &amp;&amp;
+      controles.player.player_controls.current == "subtitles"
+    ) {
+      toggle_subtitles__button.classList.add("active-sub");
+    }
+
+    if (sub_items) {
+      sub_items.classList.remove("hidden");
+    }
+
+    const play_parent = document.querySelector(".play-parent");
+
+    if (
+      controles.player.current == "player_list" &amp;&amp;
+      !Player.isPlayerChannelsListVisible
+    ) {
+      play_parent.classList.remove("hidden");
+      controles.player.set_current("player_controls");
+      controles.player.player_controls.set_current("play_pause");
+      controles.player.player_controls.play_pause.move();
+    }
+
+    const app_loader = document.getElementById("app_loader");
+
+    clearTimeout(keydown_timer);
+
+    if (
+      (!HlsPlayer.isPlaying &amp;&amp; show) ||
+      (app_loader &amp;&amp; app_loader.classList.contains("show")) // TODO check this class
+    )
+      return;
+
+    keydown_timer = setTimeout(function () {
+      Player.hidePlayerControls();
+    }, 3000);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static hidePlayerControls() {
+    const channels_list_item = document.getElementById("channels_list_item");
+    const my_list_button = document.querySelector(".addto-mylist__button");
+    const detailed_info_btn = document.querySelector(".detailed-popup__item");
+    const replay__button = document.querySelector(".replay__button");
+    if (my_list_button) {
+      my_list_button.classList.add("hidden");
+    }
+    if (replay__button) {
+      replay__button.classList.add("hidden");
+    }
+
+    if (detailed_info_btn) {
+      detailed_info_btn.classList.add("hidden");
+    }
+
+    if (!DetailedPopup.isShown) {
+      Player.isControlsVisible = false;
+      Player.toggleChannelsList(false);
+    }
+    const video_parent = document.querySelector(".video-parent");
+    if (video_parent) {
+      video_parent.classList.add("hidden");
+      const toggle_subtitles__button = document.querySelector(
+        ".toggle-subtitles__button"
+      );
+      const sub_items = document.querySelector(".sub-items");
+      if (toggle_subtitles__button) {
+        toggle_subtitles__button.classList.remove("active-sub");
+      }
+      if (sub_items) {
+        sub_items.classList.add("hidden");
+      }
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static playPause() {
+    const play_button_parent = document.querySelector(".play-button__parent");
+    const video = document.getElementById("video");
+    const globalAnalytics = new GlobalAnalytics();
+    const analytics = new Analytics(globalAnalytics);
+
+    if (video.paused) {
+      analytics.sendEvent("play");
+      video.play();
+      play_button_parent.innerHTML = Player.play_button_icon;
+      HlsPlayer.isPaused = false;
+    } else {
+      analytics.sendEvent("pause");
+      video.pause();
+      play_button_parent.innerHTML = Player.pause_button_icon;
+      HlsPlayer.isPaused = true;
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @param {*} id
+ * @returns {*}
+ */
+static isVideoWatched(id) {
+    const watchedList = JSON.parse(getItem("continueWatchingList") || "[]");
+    const foundVideo = watchedList.find((item) => item.id == id);
+    if (foundVideo) return foundVideo.time;
+    return false;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static hidePlayerList() { }
+
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ */
+static destroy() {
+    if (Player.page_element) {
+      Player.page_element.remove();
+      Player.page_element = null;
+    }
+  }
+}
+
+export default Player;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

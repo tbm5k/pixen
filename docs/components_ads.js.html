@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: components/ads.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: components/ads.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import Player from "../pages/player";
+import GlobalAnalytics from "../services/globalAnalytics";
+import Analytics from "../services/analytics";
+import parser from "../api/parser";
+import HlsPlayer from "./common/hls";
+import { el } from "../utils";
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+export var adTimeout;
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {boolean}
+ */
+var adsLoaded = false;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {number}
+ */
+var retry_ad_break_index = 0;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {boolean}
+ */
+var isContentResumeRequested = false;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+var adContainer;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+export var adDisplayContainer;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+var adsLoader;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+export var adsManager;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+var intervalTimer;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+var videoElement;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+var adInterval;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+var channelInfo;
+
+
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+let nonceLoader;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+let managerPromise;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+let nonceManager;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {boolean}
+ */
+let storageConsent = true;
+
+/**
+ * A placeholder for the publisher's own method of obtaining user
+ * consent, either by integrating with a CMP or based on other
+ * methods the publisher chooses to handle storage consent.
+ * @return {boolean} Whether storage consent has been given.
+ */
+function getConsentToStorage() {
+  return storageConsent;
+}
+
+// generate nonce
+/**
+ * ${1:Description placeholder}
+ */
+function generateNonce() {
+  try {
+
+    // The default value for `allowStorage` is false, but can be
+    // changed once the appropriate consent has been gathered.
+    const consentSettings = new goog.ctv.pal.ConsentSettings();
+    consentSettings.allowStorage = getConsentToStorage();
+
+    nonceLoader = new goog.ctv.pal.NonceLoader(consentSettings);
+
+    const request = new goog.ctv.pal.NonceRequest();
+    request.adWillAutoPlay = false;
+    request.adWillPlayMuted = false;
+    request.continuousPlayback = false;
+    request.iconsSupported = true;
+    request.playerType = 'HlsPlayer';
+    request.playerVersion = '1.0';
+    request.ppid = generateRandomString(20);
+    request.sessionId = channelInfo?.content_session_id;
+    // Player support for VPAID 2.0, OMID 1.0, and SIMID 1.1
+    request.supportedApiFrameworks = '2,7,9';
+    request.url = 'https://developers.google.com/ad-manager/pal/ctv';
+    request.videoHeight = videoElement?.clientHeight || 1080;
+    request.videoWidth = videoElement?.clientWidth || 1920;
+
+    managerPromise = nonceLoader.loadNonceManager(request);
+    managerPromise
+      .then((manager) => {
+        nonceManager = manager;
+
+      })
+      .catch((error) => {
+      });
+  } catch (error) {
+  }
+}
+
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {boolean}
+ */
+export var hasAds = false;
+
+// load ad with ad index.
+export function load_ima_ads(index) {
+  if (adsLoaded) {
+    return;
+  }
+  adsLoaded = true;
+  Player.current_ad_break_index = index;
+  start_ads(index);
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @export
+ */
+export function requestAds() {
+  if (adsLoaded) {
+    return;
+  }
+  adsLoaded = true;
+  var adsRequest = new google.ima.AdsRequest();
+  var url = appData.Ads.vastURL;
+  const macros = {
+    "[VIDEO_TITLE]": channelInfo.title,
+    "[VIDEO_CONTENT_ID]": channelInfo.id,
+    "[PAL_STRING]": nonceManager?.nonce || ""
+  };
+  // replace macros
+  const parsedUrl = parser.parse(url, macros);
+  url = parsedUrl;
+  adsRequest.adTagUrl = url;
+  adsRequest.linearAdSlotWidth = videoElement.clientWidth;
+  adsRequest.linearAdSlotHeight = videoElement.clientHeight;
+  adsRequest.nonLinearAdSlotWidth = videoElement.clientWidth;
+  adsRequest.nonLinearAdSlotHeight = videoElement.clientHeight / 3;
+
+  const globalAnalytics = new GlobalAnalytics();
+  const analytics = new Analytics(globalAnalytics);
+  analytics.sendEvent("adRequest");
+  analytics.sendEvent("adOpportunity");
+  adDisplayContainer.initialize();
+  adsLoader.requestAds(adsRequest);
+}
+
+// stat ads with index
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} index
+ */
+function start_ads(index) {
+  try {
+    var adsRequest = new google.ima.AdsRequest();
+    var url = Player.ad_breaks[index].url;
+    Player.ad_breaks[index].played = true;
+    adsRequest.adTagUrl = url;
+    adsRequest.linearAdSlotWidth = videoElement.clientWidth;
+    adsRequest.linearAdSlotHeight = videoElement.clientHeight;
+    adsRequest.nonLinearAdSlotWidth = videoElement.clientWidth;
+    adsRequest.nonLinearAdSlotHeight = videoElement.clientHeight / 3;
+
+    const globalAnalytics = new GlobalAnalytics();
+    const analytics = new Analytics(globalAnalytics);
+    analytics.sendEvent("adRequest");
+    analytics.sendEvent("adOpportunity");
+    adDisplayContainer.initialize();
+    adsLoader.requestAds(adsRequest);
+  } catch (error) {
+  
+  }
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} length
+ * @returns {*}
+ */
+function generateRandomString(length) {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i &lt; length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return result.toUpperCase();
+}
+
+// config required ad break with given ad data
+/**
+ * ${1:Description placeholder}
+ *
+ * @export
+ */
+export function configAdBreak() {
+  let ad_data = appData.Ads;
+  let duration = videoElement.duration;
+
+  let adPod = parseInt(ad_data.adPod);
+  let ad_breaks = [];
+  var url = appData.Ads.vastURL;
+  // url = appData.Ads.vastURL + "&amp;custom_18=Test";
+  var sample_url = "https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/single_ad_samples&amp;sz=640x480&amp;cust_params=sample_ct%3Dlinear&amp;ciu_szs=300x250%2C728x90&amp;gdfp_req=1&amp;output=vast&amp;unviewed_position_start=1&amp;env=vp&amp;impl=s&amp;correlator="
+  const macros = {
+    "[VIDEO_TITLE]": channelInfo.title,
+    "[VIDEO_CONTENT_ID]": channelInfo.id,
+    "[PAL_STRING]": nonceManager?.nonce || ""
+  };
+
+  url = parser.parse(url, macros);
+  // add preroll to adbreaks if allowed preroll
+  if (ad_data.preRoll) {
+    ad_breaks.push({
+      time: 'start',
+      url: url,
+      played: false
+    });
+  }
+  // add midRoll to adbreaks if allowed midRoll
+  if (ad_data.midRoll) {
+    let countAdBreaks = parseInt(duration / adPod);
+    if (countAdBreaks > 1) {
+      var adBreakOffSet = 0;
+      for (let i = 0; i &lt; countAdBreaks - 1; i++) {
+        adBreakOffSet += adPod
+        ad_breaks.push({
+          time: adBreakOffSet,
+          url: url,
+          played: false
+        })
+      }
+    }
+  }
+  // add postRoll to adbreaks if allowed postRoll
+  if (ad_data.postRoll) {
+    ad_breaks.push({
+      time: 'end',
+      url: url,
+      played: false
+    })
+  }
+
+  Player.ad_breaks = ad_breaks;
+  window.ad_breaks = ad_breaks;
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function contentEndedListener() {  // when video finished playing, if there is post roll, then play post roll ad break
+  try {
+    adsLoader.contentComplete();
+  } catch (e) {
+  }
+  let last_index = Player.ad_breaks.length - 1;
+  let last_ad_break = Player.ad_breaks[last_index];
+  if (Player.ad_breaks.length > 0 &amp;&amp; last_ad_break.time == 'end' &amp;&amp; !last_ad_break.played) {
+    load_ima_ads(last_index);
+  } else {
+    HlsPlayer.autoPlayNext();
+  }
+};
+
+ // initialize IMA in selected video.
+/**
+ * ${1:Description placeholder}
+ *
+ * @export
+ * @param {*} videoEl
+ * @param {*} chInfo
+ */
+export function initializeIMA(videoEl, chInfo) {
+  channelInfo = chInfo;
+  videoElement = videoEl;
+  adsLoaded = false;
+  hasAds = true;
+  videoEl.addEventListener('ended', contentEndedListener);
+  videoEl.addEventListener('error', (e) => {
+    try {
+      displayLog("AD:VIDEO:ERROR")
+      displayLog("AD:VIDEO:ERROR" + JSON.stringify(e))
+    } catch (error) {
+
+    }
+
+  });
+
+  adContainer = document.getElementById("ad_parent");
+  adDisplayContainer = new google.ima.AdDisplayContainer(adContainer);
+  adsLoader = new google.ima.AdsLoader(adDisplayContainer);
+
+  adsLoader.addEventListener(
+    google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
+    onAdsManagerLoaded,
+    false
+  );
+  adsLoader.addEventListener(
+    google.ima.AdErrorEvent.Type.AD_ERROR,
+    onAdError,
+    false
+  );
+  // generateNonce()
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} adsManagerLoadedEvent
+ */
+function onAdsManagerLoaded(adsManagerLoadedEvent) {
+  // Instantiate the AdsManager from the adsLoader response and pass it the video element
+
+  var adsRenderingSettings = new google.ima.AdsRenderingSettings();
+  adsRenderingSettings.restoreCustomPlaybackStateOnAdBreakComplete = true;
+
+  adsManager = adsManagerLoadedEvent.getAdsManager(videoElement);
+  window.adsm = adsManager;
+
+  adsManager.addEventListener(google.ima.AdEvent.Type.LOADED, onAdStarted);
+  adsManager.addEventListener(google.ima.AdEvent.Type.STARTED, onAdStarted);
+  adsManager.addEventListener(google.ima.AdEvent.Type.COMPLETE, onAdStarted);
+  adsManager.addEventListener(
+    google.ima.AdEvent.Type.CONTENT_PAUSE_REQUESTED,
+    onContentPauseRequested
+  );
+  adsManager.addEventListener(
+    google.ima.AdEvent.Type.CONTENT_RESUME_REQUESTED,
+    onContentResumeRequested
+  );
+
+  adsManager.addEventListener(
+    google.ima.AdEvent.Type.AD_BREAK_READY,
+    onAdEvent
+  );
+  adsManager.addEventListener(
+    google.ima.AdEvent.Type.AD_BREAK_STARTED,
+    onAdEvent
+  );
+  adsManager.addEventListener(
+    google.ima.AdEvent.Type.AD_BREAK_ENDED,
+    onAdEvent
+  );
+  adsManager.addEventListener(
+    google.ima.AdEvent.Type.ALL_ADS_COMPLETED,
+    onAdEvent
+  );
+  adsManager.addEventListener(google.ima.AdEvent.Type.IMPRESSION, onAdEvent);
+  adsManager.addEventListener(
+    google.ima.AdEvent.Type.FIRST_QUARTILE,
+    onAdEvent
+  );
+  adsManager.addEventListener(
+    google.ima.AdEvent.Type.MIDPOINT,
+    onAdEvent
+  );
+
+
+  adsManager.addEventListener(
+    google.ima.AdEvent.Type.THIRD_QUARTILE,
+    onAdEvent
+  );
+
+  adsManager.addEventListener(
+    google.ima.AdEvent.Type.LOG,
+    onAdLog
+  );
+
+  adsManager.addEventListener(
+    google.ima.AdErrorEvent.Type.AD_ERROR,
+    onAdError
+  );
+  adsManager.addEventListener(
+    google.ima.AdEvent.Type.AD_BREAK_FETCH_ERROR,
+    (e) => {
+      try {
+        displayLog("AD_BREAK_FETCH_ERROR:")
+        displayLog("[AD:AD_BREAK_FETCH_ERROR]" + JSON.stringify(e))
+      } catch (error) {
+
+      }
+    }
+  );
+
+  displayLog("ADS MANAGER LOADED")
+
+  var width = videoElement.clientWidth;
+  var height = videoElement.clientHeight;
+  try {       
+    videoElement.removeEventListener('ended', contentEndedListener);
+    adsManager.init(width, height, google.ima.ViewMode.NORMAL);
+    adsManager.start();
+  } catch (e) {
+    videoElement.play();
+  }
+
+}
+ // handle ad non-fatal erros
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} adErrorEvent
+ */
+function onAdLog(adErrorEvent) {
+  try {
+    displayLog("[AD:LOG]")
+    displayLog("[AD:LOG]" + JSON.stringify(adErrorEvent))
+  } catch (error) {
+
+  }
+}
+
+ // handle ad error event
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} adErrorEvent
+ */
+function onAdError(adErrorEvent) {
+  try {
+    displayLog("[AD:ERROR]")
+    displayLog("[AD:ERROR]" + JSON.stringify(adErrorEvent))
+  } catch (error) {
+
+  }
+
+  adsLoaded = false;
+  let current_ad_break = Player.ad_breaks[Player.current_ad_break_index];
+  if (current_ad_break.time == 'end') {
+    HlsPlayer.autoPlayNext();
+  } else {
+    try {
+      if (appData) {
+        retry_ad_break_index = Player.current_ad_break_index;
+        let ad_data = appData.Ads;
+        let retryTimeout = parseInt(ad_data.adInterval) * 1000;
+        setTimeout(() => {
+          if (retry_ad_break_index == Player.current_ad_break_index) {
+            start_ads(Player.current_ad_break_index)
+          }
+        }, retryTimeout);
+      }
+    } catch (error) {
+
+    }
+  }
+}
+
+function onAdStarted(adEvent) {
+  displayLog("onAdStarted:" + adEvent.type)
+  switch (adEvent.type) {
+    case google.ima.AdEvent.Type.LOADED:
+      // when ad got stuck, resume to next video automatically after ad duration.
+      setTimeout(() => {
+        if (Player.isAdPlaying) {
+          adCompleteHandler();
+          allAdsCompletedHandler();
+        }
+      }, adsManager.getRemainingTime() * 1000 + 500);
+      window.time_load = new Date().getSeconds(); // the seconds of ad started      
+      break;
+    case google.ima.AdEvent.Type.STARTED:
+    
+      window.time_start = new Date().getSeconds(); // the seconds of ad started
+      adStartedHandler(adEvent);
+      break;
+    case google.ima.AdEvent.Type.COMPLETE:
+      adCompleteHandler();
+      break;
+    default:
+  }
+}
+function clear_all_add_info() {
+  clearInterval(intervalTimer);
+}
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} e
+ */
+function onContentPauseRequested(e) {
+  onAdStarted(e)
+  onAdEvent(e)
+
+  isContentResumeRequested = false;
+  window.is_ad_satarted = true;
+  const globalAnalytics = new GlobalAnalytics();
+  const analytics = new Analytics(globalAnalytics);
+  analytics.sendEvent("adBreakStarted");
+  videoElement.pause();
+ 
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} e
+ */
+function onContentResumeRequested(e) {
+  onAdEvent(e)
+  window.is_ad_satarted = false;
+  clear_all_add_info();
+
+  isContentResumeRequested = true;
+  const globalAnalytics = new GlobalAnalytics();
+  const analytics = new Analytics(globalAnalytics);
+  analytics.sendEvent("adBreakCompleted");
+  if (!videoElement.paused) {
+    return;
+  }
+  videoElement.play();
+
+}
+
+
+function destroy_add() {
+  videoElement.play();
+  displayLog("AD:destroy")
+  if (Player.current_ad_break_index == Player.ad_breaks.length - 1) {
+    if (adsManager) {
+      adsManager.destroy();
+      adsManager = null;
+    }
+    const adParent = document.getElementById("ad_parent");
+    if (adParent) {
+      adParent.remove();
+    }
+    adsLoader = null;
+    adDisplayContainer = null;
+    adContainer = null;
+    HlsPlayer.autoPlayNext();
+  } else {
+    videoElement.addEventListener('ended', contentEndedListener);
+  }
+  adsLoaded = false;
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} adEvent
+ */
+function onAdEvent(adEvent) {
+  displayLog("AdEvent:" + adEvent.type)
+  switch (adEvent.type) {
+    case google.ima.AdEvent.Type.LOADED:
+      break;
+    case google.ima.AdEvent.Type.STARTED:
+      // adStartedHandler(adEvent);
+      break;
+    case google.ima.AdEvent.Type.COMPLETE:
+      adCompletedHandler();
+      break;
+    case google.ima.AdEvent.Type.IMPRESSION:
+      onImpressionHandler();
+      break;
+    case google.ima.AdEvent.Type.AD_BREAK_READY:
+      break;
+    case google.ima.AdEvent.Type.AD_PROGRESS:
+      break;
+    case google.ima.AdEvent.Type.AD_BREAK_STARTED:
+      onAdBreakStartedHandler();
+      break;
+    case google.ima.AdEvent.Type.AD_BREAK_ENDED:
+      break;
+
+    case google.ima.AdEvent.Type.FIRST_QUARTILE:
+      onFirstQuartileHandler();
+      break;
+    case google.ima.AdEvent.Type.THIRD_QUARTILE:
+      onThirdQuartileHandler();
+      break;
+    case google.ima.AdEvent.Type.ALL_ADS_COMPLETED:
+      allAdsCompletedHandler();
+      break;
+  }
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function adCompletedHandler() {
+  var adParent = document.getElementById("ad_parent");
+
+  if (adParent) {
+    adParent.remove();
+  }
+
+  const ad_duration_parent = document.getElementById("ad_duration_parent");
+
+  if (ad_duration_parent) {
+    ad_duration_parent.classList.add("hidden");
+  }
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function allAdsCompletedHandler() {
+  if (videoElement) {
+    if (videoElement.paused) {
+      videoElement.play();
+    }
+  }
+}
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} adEvent
+ */
+function adStartedHandler(adEvent) {
+  const globalAnalytics = new GlobalAnalytics();
+  const analytics = new Analytics(globalAnalytics);
+  analytics.sendEvent("adStarted");
+  clearInterval(adInterval);
+
+  let adDuration = adEvent.ad.data.duration;
+
+  const ad_duration_parent = document.getElementById("ad_duration_parent");
+  const ad_duration_text = document.getElementById("ad_duration_text");
+  ad_duration_parent.classList.remove("hidden");
+
+  if (document.getElementById("app_loader")) {
+    document.getElementById("app_loader").classList.remove("show");
+  }
+
+  Player.hidePlayerControls();
+  Player.isAdPlaying = true;
+
+
+
+  adInterval = setInterval(() => {
+    var remainingTime = adsManager.getRemainingTime();
+    ad_duration_text.innerHTML = "The video will start " + parseInt(remainingTime) + "s";
+  }, 300);
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function onImpressionHandler() {
+  const googleAnalytics = new GlobalAnalytics();
+  const analytics = new Analytics(googleAnalytics);
+  analytics.sendEvent("impression");
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function onAdBreakStartedHandler() {
+  const googleAnalytics = new GlobalAnalytics();
+  const analytics = new Analytics(googleAnalytics);
+  analytics.sendEvent("adBreakStarted");
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function onFirstQuartileHandler() {
+  const googleAnalytics = new GlobalAnalytics();
+  const analytics = new Analytics(googleAnalytics);
+  analytics.sendEvent("firstQuartile");
+}
+
+/**
+ * ${1:Description placeholder}
+ */
+function onThirdQuartileHandler() {
+  const googleAnalytics = new GlobalAnalytics();
+  const analytics = new Analytics(googleAnalytics);
+  analytics.sendEvent("thirdQuartile");
+}
+
+// ad complete handler - restting player-the related variables with ad and hide ad duration layout, destory ad manager. and resume to next video.
+/**
+ * ${1:Description placeholder}
+ */
+function adCompleteHandler() {
+
+  clearInterval(adInterval);
+  adInterval = null;
+  const googleAnalytics = new GlobalAnalytics();
+  const analytics = new Analytics(googleAnalytics);
+  analytics.sendEvent("adComplete");
+  Player.isAdPlaying = false;
+  if (!isContentResumeRequested) {
+    analytics.sendEvent("adBreakCompleted");
+  }
+  const ad_duration_text = document.getElementById("ad_duration_parent");
+  if(ad_duration_text){
+    ad_duration_text.classList.add('hidden');
+  }
+  destroy_add();
+}
+
+
+ // use to debug the logs on physical devices, isTest should be true to see the logs on the player screen
+/**
+ * ${1:Description placeholder}
+ *
+ * @param {*} text
+ */
+function displayLog(text) {
+  const isTest = false
+  if (isTest) {
+    const ad_log_parent = document.getElementById("ad_log_parent");
+    if (ad_log_parent) {
+      const count = document.getElementsByClassName("ad-log-text").length
+      const log_text = el("div", "ad-log-text");
+      log_text.innerHTML = (count + 1) + " " + text
+      ad_log_parent.prepend(log_text)
+    }
+  }
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

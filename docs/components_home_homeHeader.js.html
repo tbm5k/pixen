@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: components/home/homeHeader.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: components/home/homeHeader.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { el, convertTime } from "../../utils";
+import ChannelCard from "../common/channelCard";
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+export let header_timer = null;
+/**
+ * ${1:Description placeholder}
+ *
+ * @class HomeHeader
+ * @typedef {HomeHeader}
+ */
+class HomeHeader {
+  /**
+ * Creates an instance of HomeHeader.
+ *
+ * @constructor
+ * @param {*} channelTitle
+ * @param {*} channelImg
+ * @param {*} isLive
+ * @param {*} description
+ * @param {*} category
+ * @param {*} videoDuration
+ * @param {*} parental_control
+ * @param {*} resolution
+ */
+constructor(
+    channelTitle,
+    channelImg,
+    isLive,
+    description,
+    category,
+    videoDuration,
+    parental_control,
+    resolution
+  ) {
+    this.data = {
+      channelTitle,
+      channelImg,
+      isLive,
+      description,
+      category,
+      videoDuration,
+      parental_control,
+      resolution,
+    };
+    this.time = 500;
+    this.previoous_image = null;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+render() {
+    if (!this.data.channelImg) {
+      // TODO In the future, we might determine whether or not the "my list" is empty before setting the time to zero.
+      this.time = 0;
+    }
+
+    clearTimeout(header_timer);
+    var current = "_" + pages.current;
+    const header_parent = el("div", "home-header__parent", "header_parent" + current);
+
+    header_parent.innerHTML = "";
+
+    const header_img = el("div", "home-header__img", "home_header_img" + current);
+    const header_content = el("div", "home-content", "home_content" + current);
+    const header_title = el("h1", "home-header__title", "home_header_title" + current);
+    const header_tags = el("div", "home-header__tags", "home_header_tags" + current);
+    const live_block = el("div", "live-block");
+    const live_text = el("span", "live-text");
+
+    if (this.data.category) {
+      live_text.innerHTML = this.data.category;
+      live_block.classList.remove("empty");
+    } else {
+      live_block.classList.add("empty");
+    }
+
+    const header_is_live_img = `
+    &lt;svg class="live-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      &lt;g>
+          &lt;path fill="none" d="M0 0h24v24H0z"/>
+          &lt;path fill-rule="nonzero" d="M16 4a1 1 0 0 1 1 1v4.2l5.213-3.65a.5.5 0 0 1 .787.41v12.08a.5.5 0 0 1-.787.41L17 14.8V19a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h14zm-1 2H3v12h12V6zM7.4 8.829a.4.4 0 0 1 .215.062l4.355 2.772a.4.4 0 0 1 0 .674L7.615 15.11A.4.4 0 0 1 7 14.77V9.23c0-.221.18-.4.4-.4zM21 8.84l-4 2.8v.718l4 2.8V8.84z"/>
+      &lt;/g>
+    &lt;/svg>
+    `;
+
+    const header_description = el(
+      "p",
+      "home-header__description",
+      "home_header_description" + current
+    );
+
+    header_title.innerHTML = this.data.channelTitle;
+
+    header_description.innerHTML = this.data.description;
+    let img = "";
+
+
+    if (this.data.channelImg) {
+      const image = new Image();
+      const imgSrc = ChannelCard.getCompressedImage(this.data.channelImg, 1535, 864);
+      image.src = imgSrc;
+
+      image.onload = () => {
+        img = image.src;
+        setHeaderImage(img);
+      };
+
+      image.onerror = () => {
+        img = appData.graphic.defaultThumbnail;
+        setHeaderImage(img);
+      };
+    } else {
+      img = appData.graphic.defaultThumbnail;
+      setHeaderImage(img);
+    }
+
+    const setHeaderImage = (img) => {
+      requestAnimationFrame(() => {
+        if (this.previous_image !== img) {
+          header_img.style.backgroundImage = `url(${img})`;
+          this.previous_image = img;
+        }
+      });
+    };
+
+    header_parent.appendChild(header_img);
+    if (this.data.channelTitle) {
+      header_content.appendChild(header_title);
+    }
+
+    live_block.innerHTML = header_is_live_img;
+    live_block.appendChild(live_text);
+
+    header_tags.appendChild(live_block);
+
+    if (this.data.description) {
+      header_content.appendChild(header_description);
+    }
+
+    if (this.data.videoDuration) {
+      const video_duration = el("div", "channel-info__tag");
+      const duration_img = el("img", "tag-icon");
+      duration_img.src = "https://cdn.castify.ai/files/app/clock.svg";
+      if (video_duration) {
+        video_duration.innerHTML = duration_img;
+      }
+      header_tags.appendChild(video_duration);
+      const convertedDuration = convertTime(this.data.videoDuration);
+
+      if (video_duration) {
+
+        video_duration.innerHTML = convertedDuration;
+      }
+    }
+
+    if (this.data.resolution) {
+      const resolution = el("div", "channel-info__tag");
+      resolution.innerHTML = this.data.resolution;
+      header_tags.appendChild(resolution);
+    }
+
+    if (this.data.parental_control &amp;&amp; this.data.parental_control.length) {
+      const parental_control = el("div", "channel-info__tag");
+      const parental_control_img = el("img", "tag-icon");
+
+      parental_control_img.src =
+        "https://cdn.castify.ai/files/app/parentControl.svg";
+      parental_control.appendChild(parental_control_img);
+      parental_control.innerHTML = this.data.parental_control[0].title;
+      header_tags.appendChild(parental_control);
+    }
+
+    header_content.appendChild(header_tags);
+
+    header_parent.appendChild(header_content);
+
+    header_timer = setTimeout(function () {
+      const home_header_wrapper = document.getElementById("home_header_wrapper" + current);
+      if (!home_header_wrapper) return;
+      home_header_wrapper.innerHTML = "";
+      home_header_wrapper.appendChild(header_parent);
+    }, this.time);
+  }
+}
+
+export default HomeHeader;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+    "generals": {
+      "player": {
+        "type": "castify"
+      }
+    }
+}

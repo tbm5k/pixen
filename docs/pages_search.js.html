@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: pages/search.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: pages/search.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>// Search layout
+
+import Keyboard from "../components/common/Keyboard";
+import ChannleGrid from "../components/common/channelGrid";
+import controles from "../remote/controles";
+import { move } from "../remote/keys";
+import { el, detect_page, get_word } from "../utils";
+import Parser from "./../api/parser";
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+let searchTimout = null;
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+let graphic = null;
+class SearchPage {
+  /**
+ * Creates an instance of SearchPage.
+ *
+ * @constructor
+ */
+constructor() {
+    this.data = {
+      title: "Search",
+      page: "search",
+    };
+
+    this.channels = appData.content;
+    this.firstTwentyfiveItems = [];
+
+    this.page = detect_page(this.data.page);
+    const search_page = Object.values(appData.menu.pages).find(
+      (page) => page.page_client_class === "search"
+    );
+    graphic = search_page.graphic;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {number}
+ */
+static foundedChannelsCount = 0;
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @type {*}
+ */
+static page_element = null;
+
+  render() {
+    if (SearchPage.page_element) {
+      return;
+    }
+    let root = document.getElementById("root");
+    root.style.background = graphic.page_background_color;
+
+    let styleElement = document.createElement('style');
+    styleElement.innerHTML = '.search-input::placeholder { color: ' + graphic.text_color + '; }';
+    document.head.appendChild(styleElement);
+
+    let search_parent = el("div", "page-parent search-parent", "search_parent");
+    let search_result_parent = el(
+      "div",
+      "search-result-parent",
+      "search_result_parent"
+    );
+    let search_page_title = el("h1", "page-title");
+    search_page_title.style.color = graphic.title_color;
+
+    let search_input_parent = el("div", "search-input__parent");
+    let search_input = el(
+      "input",
+      "search-input__item search-input",
+      "search_input"
+    );
+    search_input.style.color = graphic.text_color;
+    search_input.style.borderColor = graphic.text_color;
+
+    let founded_items_count = el(
+      "p",
+      "founded-items-count",
+      "founded_items_count"
+    );
+
+    let not_found_message = el("p", "not-found-message", "not_found_message");
+
+    SearchPage.foundedChannelsCount = Object.keys(this.channels).length;
+  
+
+    search_input.placeholder = get_word("search_placeholder");
+    search_input_parent.appendChild(search_input);
+    search_input_parent.appendChild(founded_items_count);
+
+    search_page_title.innerHTML =
+      appData.graphic.appName +
+      `&lt;span class='app-name__border' style='background-color: ${graphic.text_color};'>&lt;/span>` +
+      this.page.page_title;
+    search_parent.appendChild(search_page_title);
+    search_parent.appendChild(search_input_parent);
+    search_parent.appendChild(not_found_message);
+
+    search_input.onmouseover = this.searchInputMouseOver;
+    search_input.oninput = this.searchInputChange;
+    search_input.onclick = this.searchInputClick.bind(this);
+
+    this.firstTwentyfiveItems = Object.values(this.channels).slice(0, 25);
+
+    search_result_parent.appendChild(
+      new ChannleGrid({ channels: this.firstTwentyfiveItems }).render()
+    );
+
+    search_parent.appendChild(search_result_parent);
+
+    root.appendChild(search_parent);
+    SearchPage.page_element = document.getElementById('search_parent');
+    pages.page_objects.search = SearchPage.page_element;
+
+    controles.main.search.search_results.index = 0;
+    controles.main.search.search_results.row = 0;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+searchInputMouseOver() {
+    if (controles.main.search.current !== "search_input") {
+      controles.main.search.set_current("search_input");
+      move();
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} e
+ * @param {*} isKeyboard
+ * @param {*} val
+ */
+searchInputChange(e, isKeyboard, val) {
+    clearTimeout(searchTimout);
+    searchTimout = setTimeout(function () {
+      let value = "";
+
+      if (isKeyboard) {
+        value = val;
+      } else {
+        value = e.target.value;
+      }
+
+
+      const channels = Object.keys(appData.content).filter((key, index) => {
+        const channel = appData.content[key];
+        return channel.title.toLowerCase().includes(value?.toLowerCase());
+  
+      });
+
+      const filtered_channels = {};
+
+      let not_found_message = document.getElementById("not_found_message");
+      not_found_message.style.color = graphic.text_color;
+
+      let founded_items_count = document.getElementById("founded_items_count");
+      founded_items_count.style.color = graphic.text_color;
+      if (!channels.length) {
+        not_found_message.classList.add("visible");
+        not_found_message.innerHTML = `${get_word(
+          "searchNoResults"
+        )} '${value}'`;
+        founded_items_count.innerHTML = "";
+      } else {
+        not_found_message.classList.remove("visible");
+        if (channels.length &lt; 25) {
+          if (value.length) {
+            founded_items_count.innerHTML = `${get_word("found")} ${channels.length
+              } videos`;
+          } else {
+            founded_items_count.innerHTML = "";
+          }
+        } else {
+          founded_items_count.innerHTML = "";
+        }
+      }
+
+      SearchPage.foundedChannelsCount = channels.length;
+
+      for (let i = 0; i &lt; channels.length; i++) {
+        if (i &lt; 25)
+          filtered_channels[channels[i]] = appData.content[channels[i]];
+        else break;
+      }
+
+
+      const search_result_parent = document.getElementById(
+        "search_result_parent"
+      );
+
+      search_result_parent.innerHTML = "";
+      search_result_parent.appendChild(
+        new ChannleGrid({ channels: filtered_channels }).render()
+      );
+    }, 500);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+searchInputClick() {
+    const _this = this;
+    const input = document.getElementById("search_input");
+    var has_focus = document.activeElement === input;
+    if (controles.main.search.current !== "search_input") {
+      controles.main.search.set_current("search_input");
+      move();
+    }
+
+    if (!has_focus) { // then focus to input element or show built in keyboard
+      if (window.settings?.platformSettings?.keyboard) {
+        const target = document.getElementById("search_input");
+        const keyboardOptions = {
+          el: target,
+          changeValue: (value) => {
+            _this.searchInputChange(null, true, value);
+          },
+        };
+        const keyboard = new Keyboard(keyboardOptions);
+        keyboard.render();
+      } else {
+        input.focus();
+      }
+    }   
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+mounted() {
+    this.render();
+  }
+}
+
+export default SearchPage;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

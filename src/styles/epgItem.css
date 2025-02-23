@@ -1,0 +1,87 @@
+
+.today-epg-list-title {
+    font-size: 3rem;
+    font-weight: 700;
+    text-align: center;
+    color: #fff;
+    margin: 2rem 0;
+    padding-bottom: 2rem;
+    border-bottom: .3rem solid #fff;
+}
+
+.epg-item {
+    width: 100%;
+    height: 14rem;
+    padding: 1rem;
+    display: flex;
+    align-items: flex-start;
+}
+
+.epg-item.active {
+    opacity: .8;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.epg-item__img {
+    width: 14rem;
+    height: 100%;
+    margin-right: 3rem;
+    object-fit: cover;
+}
+
+.epg-item__content-parent {
+    width: calc(100% - 12rem);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.epg-item__title {
+    font-size: 2.6rem;
+    font-weight: 700;
+    color: #fff;
+    opacity: .8;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;  
+    overflow: hidden;
+}
+
+.epg-item__time {
+    font-size: 2.4rem;
+    color: #fff;
+}
+
+.epg-item__description-parent {
+    padding: 1rem;
+    transition: all .3s ease-in-out;
+    display: none;
+}
+
+.epg-item__description-parent.visible {
+    display: block;
+}
+
+.today-epg-list-items-parent {
+    position: relative;
+    overflow: hidden;
+}
+
+.today-epg-list-items {
+    transition: all .3s linear;
+}
+
+.epg-item__description {
+    font-size: 2.2rem;
+    color: #fff;
+    opacity: .8;
+}
+
+.no-epg-description {
+    font-size: 2.2rem;
+    color: #fff;
+    opacity: .6;
+    text-align: center;
+    margin: 2rem 0;
+}

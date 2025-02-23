@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: components/common/channelCard.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: components/common/channelCard.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { detect_page, el } from "../../utils";
+import { cropedImages } from "../../index";
+import GoogleAnalytics from "../../plugins/googleAnalytics";
+import GlobalAnalytics from "../../services/globalAnalytics";
+import pages from "../../remote/pages";
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @class ChannelCard
+ * @typedef {ChannelCard}
+ */
+class ChannelCard {
+  /**
+ * Creates an instance of ChannelCard.
+ *
+ * @constructor
+ * @param {{ id: any; title: any; thumbnail: any; thumbnail_playlist: any; description: any; isLive: any; index: any; row: any; videoDuration: any; resolution: any; parental_control: any; isMovieCarousel: any; cardClickHandler: any; cardMouseOver: any; content_type: any; }} param0
+ * @param {*} param0.id
+ * @param {*} param0.title
+ * @param {*} param0.thumbnail
+ * @param {*} param0.thumbnail_playlist
+ * @param {*} param0.description
+ * @param {*} param0.isLive
+ * @param {*} param0.index
+ * @param {*} param0.row
+ * @param {*} param0.videoDuration
+ * @param {*} param0.resolution
+ * @param {*} param0.parental_control
+ * @param {*} param0.isMovieCarousel
+ * @param {*} param0.cardClickHandler
+ * @param {*} param0.cardMouseOver
+ * @param {*\} param0.content_type
+ */
+constructor({
+    id,
+    title,
+    thumbnail,
+    thumbnail_playlist,
+    description,
+    isLive,
+    index,
+    row,
+    videoDuration,
+    resolution,
+    parental_control,
+    isMovieCarousel,
+    cardClickHandler,
+    cardMouseOver,
+    content_type,
+  }) {
+    this.data = {
+      id,
+      title,
+      thumbnail,
+      thumbnail_playlist,
+      description,
+      isLive,
+      index,
+      row,
+      videoDuration,
+      resolution,
+      parental_control,
+      isMovieCarousel,
+      cardClickHandler,
+      cardMouseOver,
+      content_type,
+    };
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @param {*} imgSrc
+ * @param {*} imgWidth
+ * @param {*} imgHeight
+ * @returns {string}
+ */
+static getCompressedImage(imgSrc, imgWidth, imgHeight){
+    let imgSize = `w=${imgWidth}&amp;h=${imgHeight}`;  
+    let src = `https://images.weserv.nl/?url=${imgSrc}&amp;${imgSize}&amp;q=100&amp;con=0&amp;l=1`;
+    
+    src=`https://ik.imagekit.io/030om0emf/${imgSrc}?tr=w-${imgWidth},h-${imgHeight}`
+
+    return src;
+  }
+  /**
+ * ${1:Description placeholder}
+ *
+ * @returns {*}
+ */
+render() {
+    const channel_parent = el("div", "channel-card__parent channel-item-ctrl");
+
+    channel_parent.setAttribute("data-id", this.data.id);
+    channel_parent.setAttribute("data-index", this.data.index);
+    channel_parent.setAttribute("data-row", this.data.row);
+
+    const channel_img = el("div", "channel-card__img");
+    const channel_inner_img = el("img", "channel-card__inner-img");
+
+    if (this.isMovieCarousel) {
+      channel_inner_img.style.width = "25.1rem";
+      channel_inner_img.style.height = "36.7rem";
+    } else {
+      channel_inner_img.style.width = "31.6rem";
+      channel_inner_img.style.height = "17.7rem";
+    }
+
+    const channel_content = el("div", "channel-card__content");
+    const channel_title = el("p", "channel-card__title");
+    channel_title.innerHTML = this.data.title;
+  
+
+    const currentPage = detect_page(pages.current);
+
+    const firstPlaylist = Object.values(appData.playlists)[0];
+
+    let itemColor = "#fff";
+    let itemActiveColor = "#000";
+    if (firstPlaylist) {
+      if (firstPlaylist.graphic &amp;&amp; firstPlaylist.graphic.title_color) {
+        itemColor = firstPlaylist.graphic.title_color;
+      } else if (firstPlaylist.title_color) {
+        itemColor = firstPlaylist.title_color;
+      } else {
+        itemColor = appData.graphic.mainColor;
+      }
+
+      if (firstPlaylist.graphic &amp;&amp; firstPlaylist.graphic.active_item_color) {
+        itemActiveColor = firstPlaylist.graphic.active_item_color;
+      } else if (firstPlaylist.color) {
+        itemActiveColor = firstPlaylist.active_item_color;
+      } else {
+        itemActiveColor = appData.graphic.activeItemColor;
+      }
+    }
+
+    channel_title.style.color = itemColor;
+
+    if (channel_parent.classList.contains("active")) {
+      channel_title.style.color = itemActiveColor;
+    }
+
+    const image = new Image();
+
+    image.src = this.data.thumbnail;
+
+    const imgSrc = this.data.thumbnail_playlist || this.data.thumbnail;
+    const imgSize = this.data.isMovieCarousel ? "251x367" : "316x178";
+    let imgWidth=this.data.isMovieCarousel ? 251 : 361;
+    let imgHeight=this.data.isMovieCarousel ? 367 : 178;
+    image.onload = () => {  
+      channel_inner_img.src = ChannelCard.getCompressedImage(imgSrc, imgWidth, imgHeight);
+    };
+
+    image.onerror = () => {
+      channel_inner_img.src = appData.graphic.defaultThumbnail;
+    };
+    
+    let image_size = "316x177";
+
+    if (this.isMovieCarousel) {
+      image_size = "251x367";
+    }
+
+    channel_img.appendChild(channel_inner_img);
+
+    channel_parent.appendChild(channel_img);
+    channel_content.appendChild(channel_title);
+    const live_block = el("div", "channel-live__block empty");
+    if (this.data.isLive) {
+      if (!this.data.isMovieCarousel) {
+        const live_text = el("span", "channel-live__text");
+        live_text.innerHTML = "Live";
+        live_block.appendChild(live_text);
+        live_block.classList.remove("empty");
+      }
+    } else {
+      if (!this.data.isMovieCarousel &amp;&amp; this.data.videoDuration) {
+        const video_duration = el("span", "channel-video-duration");
+        video_duration.innerHTML = this.convertDuration(
+          this.data.videoDuration
+        );
+
+        live_block.appendChild(video_duration);
+        live_block.classList.remove("empty");
+      }
+    }
+
+    channel_img.appendChild(live_block);
+
+    if (
+      this.data.parental_control &amp;&amp;
+      this.data.parental_control.length &amp;&amp;
+      !this.data.isMovieCarousel
+    ) {
+      const parental_img = el("img", "channel-parental__img");
+
+      const image = new Image();
+      image.src = this.data.parental_control[0].image;
+
+      const parentalImgSrc = this.data.parental_control[0].image;
+      
+      image.onload = () => {
+        parental_img.src = ChannelCard.getCompressedImage(parentalImgSrc, 50, 50);        
+      };
+
+      image.onerror = () => {
+        parental_img.src = appData.graphic.defaultThumbnail;
+      };
+
+      channel_img.appendChild(parental_img);
+    }
+
+    channel_parent.appendChild(channel_content);
+    const _this = this;
+
+    channel_parent.onclick = () => {      
+      const channel_parent_parentElement = channel_parent.parentElement;
+
+      if (channel_parent_parentElement) {
+        const parentEntityId =
+          channel_parent_parentElement.getAttribute("entity_id");
+        window.selectedPlaylistId = parentEntityId;
+      }
+
+      const globalAnalytics = new GlobalAnalytics();
+
+      globalAnalytics.sendEvent("carouselClick", _this.data.id);
+
+      const item = {
+        id: _this.data.id,
+        index: _this.data.index,
+        title: _this.data.title,
+        thumbnail: _this.data.thumbnail,
+        thumbnail_playlist: _this.data.thumbnail_playlist,
+        videoDuration: _this.data.videoDuration,
+        description: _this.data.description,
+        parental_control: _this.data.parental_control,
+        isLive: _this.data.isLive,
+        content_type: _this.data.content_type,
+      };            
+      _this.data.cardClickHandler(item);
+    };
+
+    channel_parent.onmouseenter = (e) => {
+      _this.data.cardMouseOver(_this.data.index, _this.data, e.target);
+      channel_parent.classList.add("active");
+      channel_parent.setAttribute("data-id", this.data.id);
+
+      const firstPlaylist = Object.values(appData.playlists)[0];
+
+      let itemTitleColor = "#fff";
+
+      if (firstPlaylist) {
+        if (firstPlaylist.graphic &amp;&amp; firstPlaylist.graphic.title_color) {
+          itemTitleColor = firstPlaylist.graphic.title_color;
+        } else if (firstPlaylist.title_color) {
+          itemTitleColor = firstPlaylist.title_color;
+        } else {
+          itemTitleColor = appData.graphic.mainColor;
+        }
+      }
+
+      const channel_titles = document.querySelectorAll(".channel-card__title");
+
+      for (let i = 0; i &lt; channel_titles.length; i++) {
+        channel_titles[i].style.color = itemTitleColor;
+      }
+
+      if (firstPlaylist.graphic &amp;&amp; firstPlaylist.graphic.active_item_color) {
+        channel_title.style.color = firstPlaylist.graphic.active_item_color;
+      } else if (firstPlaylist.color) {
+        channel_title.style.color = firstPlaylist.active_item_color;
+      } else {
+        channel_title.style.color = appData.graphic.activeItemColor;
+      }
+    };
+
+
+
+    return channel_parent;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} duration
+ * @returns {string}
+ */
+convertDuration(duration) {
+    const hours = Math.floor(duration / 3600);
+    const minutes = Math.floor((duration - hours * 3600) / 60);
+    const seconds = duration - hours * 3600 - minutes * 60;
+    if (duration &lt; 3600) {
+      return `${minutes &lt; 10 ? "0" + minutes : minutes}:${
+        seconds &lt; 10 ? "0" + seconds : seconds
+      }`;
+    } else {
+      return `${hours &lt; 10 ? "0" + hours : hours}:${
+        minutes &lt; 10 ? "0" + minutes : minutes
+      }:${seconds &lt; 10 ? "0" + seconds : seconds}`;
+    }
+  }
+}
+
+export default ChannelCard;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

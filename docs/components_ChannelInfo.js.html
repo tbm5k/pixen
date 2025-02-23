@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: components/ChannelInfo.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: components/ChannelInfo.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import { convertTime, el, getItem, setItem } from "../utils";
+import {
+  addToListSvg,
+  closeSvg,
+  durationSvg,
+  liveSvg,
+  playSvg,
+  removeFromListSvg,
+} from "./svgs";
+
+import "../styles/channelInfo.css";
+import DetailedPopup from "./detailedPopup";
+import ChannelsList from "./common/channelsList";
+import controles from "../remote/controles";
+import pages from "../remote/pages";
+
+class ChannelInfo {
+  constructor({
+    id,
+    title,
+    thumbnail,
+    thumbnail_playlist,
+    description,
+    isLive,
+    index,
+    row,
+    category,
+    videoDuration,
+    resolution,
+    parental_control,
+    isMovieCarousel,
+    cardClickHandler,
+    cardMouseOver,
+    content_type,
+    playBtn = true,
+  }) {
+    this.data = {};
+    this.data.id = id;
+    this.data.title = title;
+    this.data.thumbnail = thumbnail;
+    this.data.thumbnail_playlist = thumbnail_playlist;
+    this.data.description = description;
+    this.data.category = category;
+    this.data.isLive = isLive;
+    this.data.index = index;
+    this.data.row = row;
+    this.data.videoDuration = videoDuration;
+    this.data.resolution = resolution;
+    this.data.parental_control = parental_control;
+    this.data.isMovieCarousel = isMovieCarousel;
+    this.data.cardClickHandler = cardClickHandler;
+    this.data.cardMouseOver = cardMouseOver;
+    this.data.content_type = content_type;
+    this.data.playBtn = playBtn;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @returns {*}
+ */
+render() {
+    const parent = el("div", "channel-info__main");
+    const contentParent = el("div", "channel-info__content-parent");
+    const imageParent = el("div", "channel-info__image-parent");
+    const image = el("img", "channel-info__image");
+    const playButton = el("div", "channel-info__play-button popup-ctrl");
+
+    const tagsParent = el("div", "channel-info__tags-parent");
+
+    if (ChannelsList.isMyListVisible) {
+      const localMyList = JSON.parse(getItem("myList") || "[]");
+
+      const addToMyList = el("div", "channel-info__addtolist popup-ctrl");
+
+      if (localMyList.includes(this.data.id)) {
+        addToMyList.innerHTML = removeFromListSvg;
+        addToMyList.append("Remove from My List");
+      } else {
+        addToMyList.innerHTML = addToListSvg;
+        addToMyList.append("Add to My List");
+      }
+
+      addToMyList.addEventListener("click", () => {
+        this.addRemoveFromMyList();
+      });
+      tagsParent.appendChild(addToMyList);
+    }
+
+    const title = el("div", "channel-info__title");
+    const descriptionParent = el("div", "channel-info__description-parent");
+    const description = el("div", "channel-info__description");
+
+    if (this.data.videoDuration) {
+      const video_duration = el("div", "channel-info__tag");
+      const duration_img = el("div");
+      duration_img.innerHTML = durationSvg;
+      video_duration.appendChild(duration_img);
+
+      tagsParent.appendChild(video_duration);
+      const convertedDuration = convertTime(this.data.videoDuration);
+
+      if (video_duration) {
+        video_duration.append(convertedDuration);
+      }
+    }
+
+    if (this.data.isLive) {
+      const live_block = el("div", "live-block");
+
+      const live_img = el("div");
+      live_img.innerHTML = liveSvg;
+      const live_text = el("span", "live-text");
+      live_text.innerHTML = "Live";
+
+      live_block.appendChild(live_img);
+      live_block.appendChild(live_text);
+      tagsParent.appendChild(live_block);
+    }
+
+    const img = new Image();
+    img.src = this.data.thumbnail;
+
+    img.onload = () => {
+      image.src = this.data.thumbnail;
+    };
+
+    img.onerror = () => {
+      image.src = this.data.thumbnail_playlist;
+    };
+
+    title.innerHTML = this.data.title;
+    description.innerHTML = this.data.description;
+
+    playButton.innerHTML = playSvg;
+
+    imageParent.appendChild(image);
+
+    if (this.data.playBtn) {
+      imageParent.appendChild(playButton);
+    }
+
+    parent.appendChild(imageParent);
+    contentParent.appendChild(title);
+    descriptionParent.appendChild(description);
+    contentParent.appendChild(tagsParent);
+    contentParent.appendChild(descriptionParent);
+    parent.appendChild(contentParent);
+
+    playButton.addEventListener("click", () => {
+      DetailedPopup.destroy();
+      this.data.cardClickHandler(this.data);
+    });
+
+    return parent;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+addRemoveFromMyList() {
+    const localMyList = JSON.parse(getItem("myList") || "[]");
+    if (localMyList.includes(this.data.id)) {
+      const index = localMyList.indexOf(this.data.id);
+      localMyList.splice(index, 1);
+      setItem("myList", JSON.stringify(localMyList));
+    } else {
+      localMyList.push(this.data.id);
+      setItem("myList", JSON.stringify(localMyList));
+    }
+
+    ChannelInfo.toggleMyList(localMyList.includes(this.data.id), this.data);
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @param {*} isOnMyList
+ * @param {*} item
+ */
+static toggleMyList(isOnMyList, item) {
+    const addToMyList = document.querySelector(".channel-info__addtolist");
+    const myList = JSON.parse(getItem("myList") || "[]");
+    const myListRowParent = document.querySelector(".channels-list__item");
+    const listParent = document.querySelector(".channels-list__parent");
+
+    if (isOnMyList) {
+      addToMyList.innerHTML = removeFromListSvg;
+      addToMyList.append("Remove from My List");
+
+      if (pages.current !== "home" &amp;&amp; pages.current !== "player") return;
+
+      const myListRowContent = myListRowParent.querySelector(
+        ".channels-list__content"
+      );
+
+      if (myList.length &amp;&amp; myList.length != 1) {
+  
+        const newCard = ChannelsList.renderCardHandler(item);
+        myListRowContent.appendChild(newCard);
+      } else {
+        const myListData = Object.values(appData.playlists)?.find(
+          (item) => item.feature_client == "my_list"
+        );
+
+        if (myListData) {
+          myListData.itemIds = [];
+
+          myListData.itemIds.push(item.id);
+          const newMylistRow = ChannelsList.renderRows(myListData);
+          listParent.insertBefore(newMylistRow, listParent.firstChild);
+        }
+      }
+    } else {
+      addToMyList.innerHTML = addToListSvg;
+      addToMyList.append("Add to My List");
+
+      if (pages.current !== "home" &amp;&amp; pages.current !== "player") return;
+
+      const myListRowContent = myListRowParent.querySelector(
+        ".channels-list__content"
+      );
+
+      const myListRowCard = myListRowContent.querySelector(
+        `.channel-card__parent[data-id="${item.id}"]`
+      );
+
+      if (!myList.length) {
+        myListRowParent.remove();
+      } else {
+        myListRowCard.remove();
+        if (controles.main.home.index > 0) {
+          controles.main.home.index--;
+        }
+      }
+    }
+  }
+}
+
+export default ChannelInfo;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

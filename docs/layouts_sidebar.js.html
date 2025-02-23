@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: layouts/sidebar.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: layouts/sidebar.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>// left side bar layout
+
+import controles from "../remote/controles.js";
+import pages from "../remote/pages.js";
+import ModalComponent from "../components/modal.js";
+import { move } from "../remote/keys.js";
+import { el, remove_active_style, get_word } from "../utils.js";
+import ChannelSettings from "../settings/channelSettings.js";
+
+/**
+ * ${1:Description placeholder}
+ *
+ * @returns
+ */
+function Sidebar() {
+  this.data = {
+    sidebar_items: [],
+
+    top_image_open_menu: appData.menu.graphics.top_image_open_menu,
+    top_image_close_menu: appData.menu.graphics.top_image_close_menu,
+    bottom_image_open_menu: appData.menu.graphics.bottom_image_open_menu,
+    bottom_image_close_menu: appData.menu.graphics.bottom_image_close_menu,
+  };
+
+  function getItemHeight(size) {
+    return Math.max(3 - ((size - 8) * 0.1), 2);
+  }
+
+  const {
+    menu_text_color,
+    menu_text_color_hover,
+    menu_background_color,
+    menu_background_opacity,
+    menu_text_color_selected,
+  } = appData.menu;
+
+  this.methods = {
+    exitModalHandler: function () {
+      Sidebar.hide();
+
+      new ModalComponent({
+        title: "Exit",
+        content: "Are you sure you want to exit?",
+      });
+
+      controles.set_current("modal");
+      move();
+    },
+    // handle the event when clicking a side bar item
+    sidebarItemClick: function (item, index) {
+      var page_path = item.page_path.replace("/", "");
+
+      if (item.page_path == "/")
+        page_path = "home";
+
+      if (!item.page_path) {
+        if (item.page_client_class === "hub") {
+          page_path = "series";
+        } else if (item.page_client_class === "store") {
+          page_path = "store";
+        }
+      }
+      const page_data = pages?.page_data;
+      if (page_data) {
+        if (page_data.page_id === item.page_id) return Sidebar.hide();
+      } else {
+        if (page_path == pages.current)
+          return Sidebar.hide();
+      }
+
+      pages.set_current(page_path, item);
+
+      var sidebar_items = document.getElementsByClassName("sidebar-list__item");
+      for (let i = 0; i &lt; sidebar_items.length; i++) {
+        if (appData.graphic.rtl) {
+          sidebar_items[i].style.borderRightColor = "transparent";
+        } else {
+          sidebar_items[i].style.borderLeftColor = "transparent";
+        }
+
+        if (i == index) {
+          if (appData.graphic.rtl) {
+            sidebar_items[i].style.borderRightColor = menu_text_color_hover;
+            sidebar_items[i].classList.add("selected");
+          } else {
+            sidebar_items[i].style.borderLeftColor = menu_text_color_hover;
+            sidebar_items[i].classList.add("selected");
+          }
+        }
+      }
+    },
+
+    render: function () {
+      var root = document.getElementById("sidebar_root");
+      var sidebar_parent = el("div", "sidebar-parent", "sidebar_parent");
+      var opened_sidebar = el("div", "opened-sidebar", "opened_sidebar");
+      var sidebar_wrapper = el("div", "sidebar-wrapper");
+      var sidebar = el("div", "sidebar-small", "sidebar");
+      var sidebar_icons_parent = el("ul", "sidebar-icons__parent");
+      var sidebar_logo = el("div", "sidebar-logo");
+
+      var top_image = new Image();
+      top_image.src = this.data.top_image_close_menu;
+
+      var _this = this;
+      top_image.onload = function () {
+        sidebar_logo.style.backgroundImage =
+          "url(" + _this.data.top_image_close_menu + ")";
+      };
+
+      top_image.onerror = function () {
+        sidebar_logo.style.backgroundImage =
+          "url(" + _this.data.top_image_open_menu + ")";
+      };
+
+      var sidebar_large_logo = el("div", "sidebar-large__logo");
+      sidebar_large_logo.style.backgroundImage =
+        "url(" + this.data.top_image_open_menu + ")";
+
+      if (this.data.bottom_image_close_menu) {
+        var sidebar_bottom_logo = el("div", "sidebar-bottom__logo");
+        var sidebar_bottom_large_logo = el("div", "sidebar-bottom-large__logo");
+
+        sidebar_bottom_logo.style.backgroundImage =
+          "url(" + this.data.bottom_image_close_menu + ")";
+        sidebar_bottom_large_logo.style.backgroundImage =
+          "url(" + this.data.bottom_image_open_menu + ")";
+
+        sidebar.appendChild(sidebar_bottom_logo);
+        sidebar.appendChild(sidebar_bottom_large_logo);
+      }
+      console.log("menu:data", appData.menu);
+      const pages_size = appData.menu.order_pages.length;
+      for (var i = 0; i &lt; pages_size; i++) {
+        var items = appData.menu.pages[appData.menu.order_pages[i]];
+        var sidebar_list_item = el("li", "sidebar-list__item");
+
+        var sidebar_item_elem = el("img", "sidebar-icon");
+
+        if (pages_size > 8) {
+          sidebar_item_elem.style.height = `${getItemHeight(pages_size)}rem`;
+          sidebar_item_elem.style.weight = `${getItemHeight(pages_size)}rem`;
+          sidebar_list_item.style.margin = "0.2rem"
+        }
+        var sidebar_item_name = el(
+          "p",
+          "sidebar-icon__name sidebar-icon__name" + (i + 1)
+        );
+
+        sidebar_list_item.setAttribute("page_id", items.page_id);
+
+        if (i == 0) {
+          if (appData.graphic.rtl) {
+            sidebar_list_item.style.borderRightColor = menu_text_color_hover;
+            sidebar_list_item.classList.add("selected");
+          } else {
+            sidebar_list_item.style.borderLeftColor = menu_text_color_hover;
+            sidebar_list_item.classList.add("selected");
+          }
+        }
+
+        sidebar_item_name.style.color = menu_text_color;
+
+        sidebar_item_name.innerHTML = items.menu_title;
+
+        sidebar_item_elem.src = items.page_menu_icon;
+
+        sidebar_list_item.appendChild(sidebar_item_elem);
+        sidebar_list_item.appendChild(sidebar_item_name);
+        sidebar_icons_parent.appendChild(sidebar_list_item);
+
+       
+
+        sidebar_list_item.onclick = this.methods.sidebarItemClick.bind(
+          this,
+          items,
+          i
+        );
+
+        sidebar_list_item.onmouseover = function () {
+          const items = document.getElementsByClassName("sidebar-icon__name");
+          remove_active_style(items, menu_text_color);
+          this.childNodes[1].style.color = menu_text_color_hover;
+        };
+      }
+
+
+      var exit_item = el("li", "sidebar-list__item");
+      var exit_item_name = el("p", "sidebar-icon__name sidebar-icon__name5");
+      exit_item_name.innerHTML = get_word("exit");
+
+      exit_item.appendChild(exit_item_name);
+      exit_item.onclick = this.methods.exitModalHandler;
+      sidebar_icons_parent.appendChild(exit_item);
+
+      exit_item.onmouseover = function () {
+        const items = document.getElementsByClassName("sidebar-icon__name");
+        remove_active_style(items, menu_text_color);
+        this.childNodes[0].style.color = menu_text_color_hover;
+      };
+
+      sidebar.appendChild(sidebar_logo);
+      sidebar.appendChild(sidebar_large_logo);
+
+      sidebar.appendChild(sidebar_icons_parent);
+
+      sidebar_parent.appendChild(sidebar);
+      root.appendChild(sidebar);
+      root.appendChild(sidebar_wrapper);
+      root.appendChild(opened_sidebar);
+    },
+  };
+
+  this.mounted = function () {
+    this.methods.render.apply(this);
+  };
+
+  this.destroy = function () {
+    // destroy
+  };
+}
+
+Sidebar.show = function () {
+  const sidebar_items = document.getElementsByClassName("sidebar-list__item");
+  for (var i = 0; i &lt; sidebar_items.length; i++) {
+    if (sidebar_items[i].classList.contains("active_page")) {
+      controles.sidebar.index = i;
+      break;
+    }
+  }
+  sidebar_root.classList.add("show");
+  controles.set_current("sidebar");
+  move();
+};
+
+Sidebar.hide = function () {
+  sidebar_root.classList.remove("show");
+  controles.set_current("main");
+  move();
+};
+
+export default Sidebar;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

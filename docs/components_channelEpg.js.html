@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: components/channelEpg.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: components/channelEpg.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>import InfoModal from "./common/infoModal";
+import { el } from "../utils";
+import controles from "../remote/controles";
+import DetailedPopup from "./detailedPopup";
+import EpgItem from "./EpgItem";
+/**
+ * ${1:Description placeholder}
+ *
+ * @type {*}
+ */
+var parser = require("xml2json-light");
+
+class ChannelEpg {
+  /**
+ * Creates an instance of ChannelEpg.
+ *
+ * @constructor
+ * @param {*} link
+ */
+constructor(link) {
+    this.epgLink = link;
+
+    this.todayEpg = [];
+    this.openedIndex = null;
+
+    this.epgData = null;
+
+    this.getEpg();
+  }
+
+  async render(epgObj) {
+    const _this = this;
+    const epgContainer = el("div", "epg-container epg-ctrl");
+
+    if (epgObj &amp;&amp; epgObj.current &amp;&amp; !Object.keys(epgObj.current).length) {
+      const play_parent = document.querySelector(".play-parent");
+      const noEpg = el("p", "no-epg");
+      noEpg.innerHTML = "No program found";
+      epgContainer.appendChild(noEpg);
+      play_parent.appendChild(epgContainer);
+    } else {
+      const currentEpg = epgObj.current;
+      const nextEpg = epgObj.next;
+      const play_parent = document.querySelector(".play-parent");
+
+      // const epgContainer = el("div", "epg-container epg-ctrl");
+      if (currentEpg) {
+        const currentParent = el("div", "current-parent");
+        const epgTitle = el("p", "epg-title");
+        const epgTime = el("p", "epg-time");
+
+        epgTitle.innerHTML = currentEpg.title;
+
+        epgTime.innerHTML = `${ChannelEpg.formatTime(
+          currentEpg.start_time
+        )} - ${ChannelEpg.formatTime(currentEpg.end_time)}`;
+
+        currentParent.appendChild(epgTitle);
+        currentParent.appendChild(epgTime);
+        epgContainer.appendChild(currentParent);
+      }
+
+      if (nextEpg) {
+        const nextParent = el("div", "next-parent");
+        const nextTitle = el("p", "next-title");
+        const nextTime = el("p", "next-time");
+        nextTitle.innerHTML = nextEpg.title;
+        nextTime.innerHTML = `${ChannelEpg.formatTime(
+          nextEpg.start_time
+        )} - ${ChannelEpg.formatTime(nextEpg.end_time)}`;
+        nextParent.appendChild(nextTitle);
+        nextParent.appendChild(nextTime);
+
+        epgContainer.appendChild(nextParent);
+      }
+
+      epgContainer.onmouseover = function () {
+        if (currentEpg) {
+          _this.epgContainerMouseOver();
+        }
+      };
+
+      play_parent.appendChild(epgContainer);
+    }
+    epgContainer.onclick = function () {
+      if (_this.epgData &amp;&amp; Object.keys(_this.epgData).length) {
+        _this.showEpgInfo();
+      }
+      // }
+    };
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+showEpgInfo() {
+    const todayEpgEl = this.renderTodayEpgList();
+
+    const detailPopupOptions = {
+      children: [todayEpgEl],
+    };
+    const detailPopup = new DetailedPopup(detailPopupOptions);
+    detailPopup.render();
+    DetailedPopup.show();
+
+    controles.detailed_popup.epg.index = 0;
+    controles.set_current("detailed_popup");
+    controles.detailed_popup.set_current("epg");
+    controles.detailed_popup.epg.move();
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @returns {*}
+ */
+renderTodayEpgList() {
+    const todayEpgList = el("div", "today-epg-list");
+    const todayEpgListTitle = el("p", "today-epg-list-title");
+    todayEpgListTitle.innerHTML = "Today EPG";
+    todayEpgList.appendChild(todayEpgListTitle);
+
+    const todayEpgListItemsParent = el("div", "today-epg-list-items-parent");
+    const todayEpgListItems = el(
+      "div",
+      "today-epg-list-items",
+      "today_epg_list"
+    );
+
+    this.todayEpg.forEach((item, index) => {
+      const epgItem = new EpgItem({
+        image: item.icon?.url,
+        imageWidth: item.icon?.width,
+        imageHeight: item.icon?.height,
+        description: item.description,
+        title: item.title,
+        isVisible: false,
+        start_time: item.start_time,
+        end_time: item.end_time,
+        clickHandler: () => this.clickEpgItem(item, index),
+      });
+
+      todayEpgListItems.appendChild(epgItem.render());
+    });
+
+    todayEpgListItemsParent.appendChild(todayEpgListItems);
+    todayEpgList.appendChild(todayEpgListItemsParent);
+
+    return todayEpgList;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @param {*} item
+ * @param {*} index
+ */
+clickEpgItem(item, index) {
+    const todayEpgListItems = document.querySelector(".today-epg-list-items");
+    const descriptionParent = todayEpgListItems.querySelectorAll(
+      ".epg-item__description-parent"
+    );
+
+    if (this.openedIndex == index) {
+      descriptionParent.forEach((item, index) => {
+        item.classList.remove("visible");
+      });
+      this.openedIndex = null;
+      return;
+    }
+
+    this.openedIndex = index;
+
+    descriptionParent.forEach((item, index) => {
+      item.classList.remove("visible");
+    });
+
+    descriptionParent[index].classList.add("visible");
+  }
+
+  /**
+ * ${1:Description placeholder}
+ */
+epgContainerMouseOver() {
+    controles.player.player_controls.set_current("epg");
+    controles.player.player_controls.epg.move();
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @static
+ * @param {*} time
+ * @returns {string}
+ */
+static formatTime(time) {
+    const hours =
+      new Date(time).getHours() &lt; 10
+        ? `0${new Date(time).getHours()}`
+        : new Date(time).getHours();
+    const minutes =
+      new Date(time).getMinutes() &lt; 10
+        ? `0${new Date(time).getMinutes()}`
+        : new Date(time).getMinutes();
+    const seconds =
+      new Date(time).getSeconds() &lt; 10
+        ? `0${new Date(time).getSeconds()}`
+        : new Date(time).getSeconds();
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @async
+ * @param {*} data
+ * @returns {*}
+ */
+async findCurrentEpg(data) {
+    const today = new Date();
+    const currentTime = today.getTime();
+
+    let current_epg = {};
+    let next_epg = {};
+    let next_index;
+
+    const year = today.getFullYear();
+    const month =
+      today.getMonth() + 1 &lt; 10
+        ? `0${today.getMonth() + 1}`
+        : today.getMonth() + 1;
+
+    const day = today.getDate() &lt; 10 ? `0${today.getDate()}` : today.getDate();
+
+    const todayDateWithoutTime = `${year}-${month}-${day}`;
+
+    const foundItem = data[todayDateWithoutTime];
+
+    if (foundItem) {
+      this.todayEpg = foundItem;
+
+      foundItem.forEach((item, index) => {
+        let epgObj = {};
+
+        const startTime = new Date(item.start_time * 1000);
+        const endTime = new Date(item.end_time * 1000);
+
+        const startDate = new Date(startTime * 1000);
+        const endDate = new Date(endTime + 1000);
+
+        const timezoneOffset = startDate.getTimezoneOffset();
+        const timezoneOffset2 = endDate.getTimezoneOffset();
+
+        epgObj.start_time = startTime.setMinutes(
+          startTime.getMinutes() + timezoneOffset
+        );
+
+        epgObj.end_time = endTime.setMinutes(
+          endTime.getMinutes() + timezoneOffset2
+        );
+
+        epgObj.title = item.title;
+
+        if (epgObj.start_time &lt; currentTime &amp;&amp; epgObj.end_time > currentTime) {
+          current_epg = epgObj;
+          next_index = index + 1;
+        }
+
+        if (next_index == index) {
+          next_epg = epgObj;
+        }
+      });
+    }
+
+    if (current_epg) {
+      this.render({ current: current_epg, next: next_epg });
+    } else {
+      this.render({ current: null, next: null });
+    }
+  }
+
+  /**
+ * ${1:Description placeholder}
+ *
+ * @async
+ * @returns {*}
+ */
+async getEpg() {
+    const _this = this;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", this.epgLink, true);
+    xhr.onload = function () {
+      if (this.status === 200) {
+        const data = JSON.parse(this.responseText);
+        _this.epgData = data;
+        _this.findCurrentEpg(data);
+      } else {
+      
+      }
+    };
+
+    xhr.send();
+  }
+}
+
+export default ChannelEpg;
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="AboutPage.html">AboutPage</a></li><li><a href="Analytics.html">Analytics</a></li><li><a href="Beacons.html">Beacons</a></li><li><a href="global.html#CastifyError">CastifyError</a></li><li><a href="global.html#CastifyEvent">CastifyEvent</a></li><li><a href="CategoriesList.html">CategoriesList</a></li><li><a href="global.html#CategoryCard">CategoryCard</a></li><li><a href="global.html#ChannelCard">ChannelCard</a></li><li><a href="ChannelEpg.html">ChannelEpg</a></li><li><a href="ChannelSettings.html">ChannelSettings</a></li><li><a href="global.html#ChannleGrid">ChannleGrid</a></li><li><a href="Emulator.html">Emulator</a></li><li><a href="global.html#EpgItem">EpgItem</a></li><li><a href="global.html#ErrorReport">ErrorReport</a></li><li><a href="global.html#GoogleAnalytics">GoogleAnalytics</a></li><li><a href="global.html#GoogleAnalyticsAds">GoogleAnalyticsAds</a></li><li><a href="global.html#GoogleAnalyticsApp">GoogleAnalyticsApp</a></li><li><a href="global.html#GoogleAnalyticsError">GoogleAnalyticsError</a></li><li><a href="global.html#GoogleAnalyticsVideo">GoogleAnalyticsVideo</a></li><li><a href="global.html#HashesPage">HashesPage</a></li><li><a href="global.html#HomeHeader">HomeHeader</a></li><li><a href="HomePage.html">HomePage</a></li><li><a href="HubPage.html">HubPage</a></li><li><a href="InfoModal.html">InfoModal</a></li><li><a href="Keyboard.html">Keyboard</a></li><li><a href="global.html#ModalComponent">ModalComponent</a></li><li><a href="SearchPage.html">SearchPage</a></li><li><a href="global.html#SeriesPage">SeriesPage</a></li><li><a href="SettingsPage.html">SettingsPage</a></li><li><a href="SpeechText.html">SpeechText</a></li><li><a href="global.html#StoreItem">StoreItem</a></li><li><a href="Subtitles.html">Subtitles</a></li><li><a href="global.html#VideoControles">VideoControles</a></li><li><a href="module.exports.html">exports</a></li><li><a href="module.exports_module.exports.html">exports</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GET">GET</a></li><li><a href="global.html#Parser">Parser</a></li><li><a href="global.html#Sidebar">Sidebar</a></li><li><a href="global.html#adCompleteHandler">adCompleteHandler</a></li><li><a href="global.html#adCompletedHandler">adCompletedHandler</a></li><li><a href="global.html#adContainer">adContainer</a></li><li><a href="global.html#adDisplayContainer">adDisplayContainer</a></li><li><a href="global.html#adInterval">adInterval</a></li><li><a href="global.html#adStartedHandler">adStartedHandler</a></li><li><a href="global.html#adTimeout">adTimeout</a></li><li><a href="global.html#add">add</a></li><li><a href="global.html#addToListSvg">addToListSvg</a></li><li><a href="global.html#adsLoaded">adsLoaded</a></li><li><a href="global.html#adsLoader">adsLoader</a></li><li><a href="global.html#adsManager">adsManager</a></li><li><a href="global.html#allAdsCompletedHandler">allAdsCompletedHandler</a></li><li><a href="global.html#animation_end">animation_end</a></li><li><a href="global.html#animation_end_function">animation_end_function</a></li><li><a href="global.html#animation_start">animation_start</a></li><li><a href="global.html#application_exit">application_exit</a></li><li><a href="global.html#assignColorCode">assignColorCode</a></li><li><a href="global.html#backForwardTimer">backForwardTimer</a></li><li><a href="global.html#brighDataSvg">brighDataSvg</a></li><li><a href="global.html#changeLastRowData">changeLastRowData</a></li><li><a href="global.html#channelInfo">channelInfo</a></li><li><a href="global.html#check_key">check_key</a></li><li><a href="global.html#closeSvg">closeSvg</a></li><li><a href="global.html#configAdBreak">configAdBreak</a></li><li><a href="global.html#contentEndedListener">contentEndedListener</a></li><li><a href="global.html#convertTime">convertTime</a></li><li><a href="global.html#createStaticElements">createStaticElements</a></li><li><a href="global.html#cropedImages">cropedImages</a></li><li><a href="global.html#detect_page">detect_page</a></li><li><a href="global.html#disable">disable</a></li><li><a href="global.html#displayLog">displayLog</a></li><li><a href="global.html#durationSvg">durationSvg</a></li><li><a href="global.html#el">el</a></li><li><a href="global.html#enable">enable</a></li><li><a href="global.html#entInfo">entInfo</a></li><li><a href="global.html#fastForwardTimer">fastForwardTimer</a></li><li><a href="global.html#findEntities">findEntities</a></li><li><a href="global.html#generateLogicUrl">generateLogicUrl</a></li><li><a href="global.html#generateNonce">generateNonce</a></li><li><a href="global.html#generateRandomString">generateRandomString</a></li><li><a href="global.html#get">get</a></li><li><a href="global.html#getAppData">getAppData</a></li><li><a href="global.html#getAppJson">getAppJson</a></li><li><a href="global.html#getConsentToStorage">getConsentToStorage</a></li><li><a href="global.html#getDeviceInfo">getDeviceInfo</a></li><li><a href="global.html#getItem">getItem</a></li><li><a href="global.html#getLogic">getLogic</a></li><li><a href="global.html#getLogicUrl">getLogicUrl</a></li><li><a href="global.html#getManifest">getManifest</a></li><li><a href="global.html#getSettings">getSettings</a></li><li><a href="global.html#getTranslation">getTranslation</a></li><li><a href="global.html#get_word">get_word</a></li><li><a href="global.html#graphic">graphic</a></li><li><a href="global.html#hasAds">hasAds</a></li><li><a href="global.html#header_timer">header_timer</a></li><li><a href="global.html#hideTimeout">hideTimeout</a></li><li><a href="global.html#infoSvg">infoSvg</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initializeIMA">initializeIMA</a></li><li><a href="global.html#intervalTimer">intervalTimer</a></li><li><a href="global.html#isContentResumeRequested">isContentResumeRequested</a></li><li><a href="global.html#isMoving">isMoving</a></li><li><a href="global.html#is_animation">is_animation</a></li><li><a href="global.html#is_restricted">is_restricted</a></li><li><a href="global.html#keydown_timer">keydown_timer</a></li><li><a href="global.html#liveSvg">liveSvg</a></li><li><a href="global.html#load">load</a></li><li><a href="global.html#loadImaSdk">loadImaSdk</a></li><li><a href="global.html#loadScripts">loadScripts</a></li><li><a href="global.html#loader">loader</a></li><li><a href="global.html#managerPromise">managerPromise</a></li><li><a href="global.html#move">move</a></li><li><a href="global.html#nonceLoader">nonceLoader</a></li><li><a href="global.html#nonceManager">nonceManager</a></li><li><a href="global.html#onAdBreakStartedHandler">onAdBreakStartedHandler</a></li><li><a href="global.html#onAdError">onAdError</a></li><li><a href="global.html#onAdEvent">onAdEvent</a></li><li><a href="global.html#onAdLog">onAdLog</a></li><li><a href="global.html#onAdsManagerLoaded">onAdsManagerLoaded</a></li><li><a href="global.html#onContentPauseRequested">onContentPauseRequested</a></li><li><a href="global.html#onContentResumeRequested">onContentResumeRequested</a></li><li><a href="global.html#onFirstQuartileHandler">onFirstQuartileHandler</a></li><li><a href="global.html#onImpressionHandler">onImpressionHandler</a></li><li><a href="global.html#onThirdQuartileHandler">onThirdQuartileHandler</a></li><li><a href="global.html#parser">parser</a></li><li><a href="global.html#playSvg">playSvg</a></li><li><a href="global.html#remove">remove</a></li><li><a href="global.html#removeFromListSvg">removeFromListSvg</a></li><li><a href="global.html#removeSvg">removeSvg</a></li><li><a href="global.html#remove_active_class">remove_active_class</a></li><li><a href="global.html#remove_active_style">remove_active_style</a></li><li><a href="global.html#requestAds">requestAds</a></li><li><a href="global.html#retry_ad_break_index">retry_ad_break_index</a></li><li><a href="global.html#run">run</a></li><li><a href="global.html#screen_saver_timeout">screen_saver_timeout</a></li><li><a href="global.html#screen_timer">screen_timer</a></li><li><a href="global.html#searchTimout">searchTimout</a></li><li><a href="global.html#sendError">sendError</a></li><li><a href="global.html#sendEvent">sendEvent</a></li><li><a href="global.html#setItem">setItem</a></li><li><a href="global.html#setOptions">setOptions</a></li><li><a href="global.html#setWindowData">setWindowData</a></li><li><a href="global.html#set_item_color">set_item_color</a></li><li><a href="global.html#shiftSvg">shiftSvg</a></li><li><a href="global.html#showScreenSaver">showScreenSaver</a></li><li><a href="global.html#showSplashScreen">showSplashScreen</a></li><li><a href="global.html#startApp">startApp</a></li><li><a href="global.html#start_ads">start_ads</a></li><li><a href="global.html#storageConsent">storageConsent</a></li><li><a href="global.html#subTimeout">subTimeout</a></li><li><a href="global.html#timer">timer</a></li><li><a href="global.html#translateJson">translateJson</a></li><li><a href="global.html#translate_list">translate_list</a></li><li><a href="global.html#underMaintenance">underMaintenance</a></li><li><a href="global.html#videoChanged">videoChanged</a></li><li><a href="global.html#videoElement">videoElement</a></li><li><a href="global.html#videoTimer">videoTimer</a></li><li><a href="global.html#wheel_interval">wheel_interval</a></li><li><a href="global.html#wheel_magic_control">wheel_magic_control</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Jul 03 2024 15:40:04 GMT+0300 (East Africa Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
