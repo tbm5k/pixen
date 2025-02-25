@@ -37,20 +37,17 @@ class HubPage {
   /**
  * render main page
  */
-  render() {
-    if (HubPage.page_element)
-      return;
+  async render() {
+    if (HubPage.page_element) return;
+
     const root = document.getElementById("root");
-
     const hub_parent = el("div", "page-parent hub-parent", "hub_parent");
-
     const category_entity_id = getItem("current_category");
 
     if (category_entity_id) {
+        const videos = window.categoriesData[category_entity_id];
+        this.renderList([{name: category_entity_id.split('.json')[0], videos}], hub_parent);
 
-      const playlist_ids = appData.categories[+category_entity_id].playlist_ids;
-
-      this.renderList(playlist_ids, hub_parent);
     }
 
     const home_header_wrapper = el(
@@ -127,12 +124,11 @@ class HubPage {
         id: item.id,
         title: item.title,
         thumbnail: item.thumbnail,
-        thumbnail_playlist: item.thumbnail_playlist,
         description: item.description,
         isLive: item.isLive,
         index: item.index,
         row: item.row,
-        videoDuration: item.videoDuration,
+        duration: item.duration,
         resolution: item.resolution,
         parental_control: item.parental_control,
         isMovieCarousel: item.isMovieCarousel,
@@ -168,22 +164,13 @@ class HubPage {
  * @param {*} elem
  */
   cardMouseOver(idx, data, elem) {
-    if (controles.main.current !== "series_channels") {
-    }
-
     remove_active_class("active")
-
-
-    const entity_id = elem.parentElement.getAttribute("entity_id");
-
-    const category = appData.playlists[entity_id].name;
-
     new HomeHeader(
       data.title,
       data.thumbnail,
       data.isLive,
       data.description,
-      category,
+      '',
       data.videoDuration,
       data.parental_control,
       data.resolution

@@ -7,6 +7,7 @@ import HomeHeader from "../components/home/homeHeader";
 import Sidebar from "../layouts/sidebar";
 import {
     el,
+    getItem,
     remove_active_class,
     remove_active_style,
     translate_list,
@@ -244,7 +245,7 @@ window.controles = {
 
                     const card_width = this.items[0].offsetWidth + 10;
 
-                    const width = card_width * this.index;
+                    const width = (card_width - 3.5) * this.index;
                     translate_list(
                         document.getElementsByClassName("channels-list__content")[this.row],
                         `-${width}px`,
@@ -762,10 +763,9 @@ window.controles = {
             items: [],
 
             move: function (param) {
-                const row_items = document.getElementsByClassName("series-content-row");
 
-                this.items =
-                    row_items[this.row].getElementsByClassName("series-item-ctrl");
+                const row_items = document.getElementsByClassName("series-content-row");
+                this.items = row_items[this.row].getElementsByClassName("series-item-ctrl");
 
                 remove_active_class("active");
                 this.items[this.index].classList.add("active");
@@ -856,15 +856,10 @@ window.controles = {
 
                 clearTimeout(this.timeout);
                 const parent = document.getElementById("channels_list_parent_hub");
-                const row_items = parent.getElementsByClassName(
-                    "channels-list__item"
-                );
+                const row_items = parent.getElementsByClassName("channels-list__item");
 
-                this.items =
-                    row_items[this.row].getElementsByClassName("channel-item-ctrl");
-                this.itemsTitle = row_items[this.row].getElementsByClassName(
-                    "channel-card__title"
-                );
+                this.items = row_items[this.row].getElementsByClassName("channel-item-ctrl");
+                this.itemsTitle = row_items[this.row].getElementsByClassName("channel-card__title");
 
                 remove_active_class("active");
                 remove_active_class("active_row");
@@ -910,15 +905,19 @@ window.controles = {
                     current_item_id = this.items[this.index].getAttribute("data-id");
                 }
 
-                let current_item = appData.content[current_item_id];
-                const _this = this;
+                // let current_item = appData.content[current_item_id];
+                const currentCategoryKey = getItem("current_category");
+                const videos = window.categoriesData[currentCategoryKey]
+                let current_item = videos.find(video => video.video_id === current_item_id);
 
                 if (current_item && pages.current == "hub") {
                     new HomeHeader(
                         current_item.title,
-                        current_item.thumbnail_playlist,
-                        current_item.is_live_streaming,
-                        current_item.description
+                        current_item.thumbnail || '',
+                        current_item.false,
+                        current_item.description,
+                        '',
+                        current_item.duration
                     ).render();
                 } else {
                     if (pages.current == "hub") {

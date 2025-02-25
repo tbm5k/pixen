@@ -8,6 +8,7 @@ import ChannelInfo from "../ChannelInfo";
 import Keyboard from "./Keyboard";
 import GoogleAnalytics from "../../plugins/googleAnalytics";
 import HlsPlayer from "./hls";
+import pages from "../../remote/pages";
 
 /**
  * ${1:Description placeholder}
@@ -178,35 +179,59 @@ class ChannleGrid {
     }
     const channel_grid = el("div", "channel-grid", "channel_grid");
 
-    for (let i = 0; i < Math.ceil(Object.keys(this.channels).length / 5); i++) {
+    // for (let i = 0; i < Math.ceil(Object.keys(this.channels).length / 5); i++) {
+    for (let i = 0; i < Math.ceil(this.channels.length / 5); i++) { // channels are playlists
       const channel_grid_row = el(
         "div",
         "channel-grid__row",
         "channel_grid_row"
       );
 
-      for (let j = 0; j < 5; j++) {
-        const item = this.channels[Object.keys(this.channels)[i * 5 + j]];
+        if(pages.current === "search"){
+            // for(const item of this.channels){
+            for(let i = 0; i < this.channels.length; i++){
+                const item = this.channels[i]
+                const channel_card = new ChannelCard({
+                    id: item.id,
+                    title: item.title,
+                    thumbnail: item.thumbnail,
+                    description: item.description,
+                    parental_control: item.parental_control,
+                    duration: item.duration,
+                    content_type: item.content_type,
+                    index: i,
+                    cardClickHandler: (item) => this.cardClickHandler(item),
+                    cardMouseOver: (e) => this.cardMouseOver(e, i),
+                });
 
-        if (item) {
-          const channel_card = new ChannelCard({
-            id: item.id,
-            title: item.title,
-            thumbnail: item.thumbnail,
-            thumbnail_playlist: item.thumbnail_playlist,
-            description: item.description,
-            isLive: item.isLive,
-            parental_control: item.parental_control,
-            videoDuration: item.videoDuration,
-            content_type: item.content_type,
-            index: i * 5 + j,
-            cardClickHandler: (item) => this.cardClickHandler(item),
-            cardMouseOver: (e) => this.cardMouseOver(e, i, j),
-          });
-
-          channel_grid_row.appendChild(channel_card.render());
+                channel_grid_row.appendChild(channel_card.render());
+            }
         }
-      }
+        if(pages.current !== "search"){
+            for (let j = 0; j < 5; j++) {
+                // const item = this.channels[Object.keys(this.channels)[i * 5 + j]];
+                console.log(this.channels);
+                const item = this.channels[i].videos[j];
+
+                if (item) {
+                    const channel_card = new ChannelCard({
+                        id: item.id,
+                        title: item.title,
+                        thumbnail: item.thumbnail,
+                        description: item.description,
+                        isLive: item.isLive,
+                        parental_control: item.parental_control,
+                        duration: item.duration,
+                        content_type: item.content_type,
+                        index: i * 5 + j,
+                        cardClickHandler: (item) => this.cardClickHandler(item),
+                        cardMouseOver: (e) => this.cardMouseOver(e, i, j),
+                    });
+
+                    channel_grid_row.appendChild(channel_card.render());
+                }
+            }
+        }
 
       channel_grid.appendChild(channel_grid_row);
     }

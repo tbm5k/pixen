@@ -18,24 +18,31 @@ function Sidebar() {
     this.data = {
         sidebar_items: [],
 
-        top_image_open_menu: appData.menu.graphics.top_image_open_menu,
-        top_image_close_menu: appData.menu.graphics.top_image_close_menu,
-        bottom_image_open_menu: appData.menu.graphics.bottom_image_open_menu,
-        bottom_image_close_menu: appData.menu.graphics.bottom_image_close_menu,
+        // top_image_open_menu: appData.menu.graphics.top_image_open_menu,
+        // top_image_close_menu: appData.menu.graphics.top_image_close_menu,
+        // bottom_image_open_menu: appData.menu.graphics.bottom_image_open_menu,
+        // bottom_image_close_menu: appData.menu.graphics.bottom_image_close_menu,
+
+        top_image_open_menu: 'open',
+        top_image_close_menu: 'close',
+        bottom_image_open_menu: 'botton open',
+        bottom_image_close_menu: 'botton close',
     };
 
   function getItemHeight(size) {
     return Math.max(3 - ((size - 8) * 0.1), 2);
   }
 
-    const {
-        menu_text_color,
-        menu_text_color_hover,
-        menu_background_color,
-        menu_background_opacity,
-        menu_text_color_selected,
-    } = appData.menu;
+    // const {
+    //     menu_text_color,
+    //     menu_text_color_hover,
+    //     menu_background_color,
+    //     menu_background_opacity,
+    //     menu_text_color_selected,
+    // } = appData.menu;
 
+    const menu_text_color = "#fff";
+    const menu_text_color_hover = "red";
   this.methods = {
     exitModalHandler: function () {
       Sidebar.hide();
@@ -49,50 +56,38 @@ function Sidebar() {
       move();
     },
     // handle the event when clicking a side bar item
-    sidebarItemClick: function (item, index) {
-      var page_path = item.page_path.replace("/", "");
+    sidebarItemClick: function (items, index) {
+        const item = items[index];
+        // var page_path = item.page_path.replace("/", "");
 
-      if (item.page_path == "/")
-        page_path = "home";
+        // if (item.page_path == "/")
+        //     page_path = "home";
 
-      if (!item.page_path) {
-        if (item.page_client_class === "hub") {
-          page_path = "series";
-        } else if (item.page_client_class === "store") {
-          page_path = "store";
-        }
-      }
-      const page_data = pages?.page_data;
-      if (page_data) {
-        if (page_data.page_id === item.page_id) return Sidebar.hide();
-      } else {
-        if (page_path == pages.current)
-          return Sidebar.hide();
-      }
+        // if (!item.page_path) {
+        //     if (item.page_client_class === "hub") {
+        //         page_path = "series";
+        //     } else if (item.page_client_class === "store") {
+        //         page_path = "store";
+        //     }
+        // }
+
+        if (item == pages.current) return Sidebar.hide();
         GoogleAnalytics.sendEvent({name: "page_navigation", parameters: {
-            PAGE: page_path.toUpperCase(),
+            PAGE: item.toUpperCase(),
         }})
 
-      pages.set_current(page_path, item);
+        pages.set_current(item);
 
-      var sidebar_items = document.getElementsByClassName("sidebar-list__item");
-      for (let i = 0; i < sidebar_items.length; i++) {
-        if (appData.graphic.rtl) {
-          sidebar_items[i].style.borderRightColor = "transparent";
-        } else {
-          sidebar_items[i].style.borderLeftColor = "transparent";
-        }
+        var sidebar_items = document.getElementsByClassName("sidebar-list__item");
+        for (let i = 0; i < sidebar_items.length; i++) {
 
-        if (i == index) {
-          if (appData.graphic.rtl) {
-            sidebar_items[i].style.borderRightColor = menu_text_color_hover;
-            sidebar_items[i].classList.add("selected");
-          } else {
-            sidebar_items[i].style.borderLeftColor = menu_text_color_hover;
-            sidebar_items[i].classList.add("selected");
-          }
+            sidebar_items[i].style.borderRightColor = "transparent";
+
+            if (i == index) {
+                sidebar_items[i].style.borderRightColor = menu_text_color_hover;
+                sidebar_items[i].classList.add("selected");
+            }
         }
-      }
     },
 
     render: function () {
@@ -104,74 +99,37 @@ function Sidebar() {
       var sidebar_icons_parent = el("ul", "sidebar-icons__parent");
       var sidebar_logo = el("div", "sidebar-logo");
 
-      var top_image = new Image();
-      top_image.src = this.data.top_image_close_menu;
-
-      var _this = this;
-      top_image.onload = function () {
-        sidebar_logo.style.backgroundImage =
-          "url(" + _this.data.top_image_close_menu + ")";
-      };
-
-      top_image.onerror = function () {
-        sidebar_logo.style.backgroundImage =
-          "url(" + _this.data.top_image_open_menu + ")";
-      };
       // Side Bar top logo
       var sidebar_large_logo = el("div", "sidebar-large__logo");
-      sidebar_large_logo.style.backgroundImage =
-        "url(" + this.data.top_image_open_menu + ")";
+      sidebar_large_logo.style.backgroundImage = "url(" + this.data.top_image_open_menu + ")";
 
       if (this.data.bottom_image_close_menu) {
         var sidebar_bottom_logo = el("div", "sidebar-bottom__logo");
         var sidebar_bottom_large_logo = el("div", "sidebar-bottom-large__logo");
 
-        sidebar_bottom_logo.style.backgroundImage =
-          "url(" + this.data.bottom_image_close_menu + ")";
-        sidebar_bottom_large_logo.style.backgroundImage =
-          "url(" + this.data.bottom_image_open_menu + ")";
+        sidebar_bottom_logo.style.backgroundImage = "url(" + this.data.bottom_image_close_menu + ")";
+        sidebar_bottom_large_logo.style.backgroundImage = "url(" + this.data.bottom_image_open_menu + ")";
 
         sidebar.appendChild(sidebar_bottom_logo);
         sidebar.appendChild(sidebar_bottom_large_logo);
       }
 
-      const pages_size = appData.menu.order_pages.length;
-      for (var i = 0; i < pages_size; i++) {
-        var items = appData.menu.pages[appData.menu.order_pages[i]];
+        const items = ['home', 'search', 'categories'];
+      for (var i = 0; i < items.length; i++) {
         var sidebar_list_item = el("li", "sidebar-list__item");
+        var sidebar_item_name = el("p", "sidebar-icon__name sidebar-icon__name" + (i + 1));
 
-        var sidebar_item_elem = el("img", "sidebar-icon");
-
-        // If the page size is greater than 8, reduce the sidebar item's size
-        if (pages_size > 8) {
-          sidebar_item_elem.style.height = `${getItemHeight(pages_size)}rem`;
-          sidebar_item_elem.style.weight = `${getItemHeight(pages_size)}rem`;
-          sidebar_list_item.style.margin = "0.2rem"
-        }
-        var sidebar_item_name = el(
-          "p",
-          "sidebar-icon__name sidebar-icon__name" + (i + 1)
-        );
-
-        sidebar_list_item.setAttribute("page_id", items.page_id);
+        sidebar_list_item.setAttribute("page_id", items[i]);
 
         if (i == 0) {
-          if (appData.graphic.rtl) {
             sidebar_list_item.style.borderRightColor = menu_text_color_hover;
             sidebar_list_item.classList.add("selected");
-          } else {
-            sidebar_list_item.style.borderLeftColor = menu_text_color_hover;
-            sidebar_list_item.classList.add("selected");
-          }
         }
 
         sidebar_item_name.style.color = menu_text_color;
 
-        sidebar_item_name.innerHTML = items.menu_title;
+        sidebar_item_name.innerHTML = items[i];
 
-        sidebar_item_elem.src = items.page_menu_icon;
-
-        sidebar_list_item.appendChild(sidebar_item_elem);
         sidebar_list_item.appendChild(sidebar_item_name);
         sidebar_icons_parent.appendChild(sidebar_list_item);
 
@@ -186,7 +144,7 @@ function Sidebar() {
         sidebar_list_item.onmouseover = function () {
           const items = document.getElementsByClassName("sidebar-icon__name");
           remove_active_style(items, menu_text_color);
-          this.childNodes[1].style.color = menu_text_color_hover;
+          this.childNodes[0].style.color = menu_text_color_hover;
         };
       }
 

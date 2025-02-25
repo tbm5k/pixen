@@ -54,10 +54,7 @@ body.rtl .sidebar-wrapper {
 
 .sidebar-icon__name {
     font-size: 2rem;
-    position: absolute;
-    left: -12rem;
-    opacity: 0;
-    transition:transform .2s linear, opacity .1s linear;
+    left: 2rem;
 }
 
 body.rtl .sidebar-icon__name {
@@ -200,7 +197,6 @@ body.rtl .sidebar-bottom-large__logo, body.rtl .sidebar-bottom__logo {
     list-style: none;
     display: flex;
     align-items: center;
-    position: relative;
     border-left: 3px solid transparent;
 }
 

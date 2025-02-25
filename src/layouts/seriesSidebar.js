@@ -15,10 +15,10 @@ import { el } from "../utils.js";
 class SeriesSidebar {
   render() {
     const series_sidebar = el("div", "series-sidebar", "series_sidebar");
-    series_sidebar.style.backgroundColor =
-      appData.menu.graphics.menu_background_color;
-    series_sidebar.style.opacity =
-      appData.menu.graphics.menu_background_opacity;
+    // series_sidebar.style.backgroundColor = appData.menu.graphics.menu_background_color;
+    // series_sidebar.style.opacity = appData.menu.graphics.menu_background_opacity;
+    series_sidebar.style.backgroundColor = "#000";
+    series_sidebar.style.opacity = 0.5;
     const back_icon_parent = el("div", "back-icon-parent back-icon-ctrl");
 
     const back_svg = `

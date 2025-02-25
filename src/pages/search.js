@@ -17,7 +17,11 @@ let eventTimer;
  *
  * @type {*}
  */
-let graphic = null;
+let graphic = {
+    page_background_color: '#000',
+    text_color: '#fff',
+    title_color: '#fff'
+}
 class SearchPage {
   /**
  * Creates an instance of SearchPage.
@@ -30,14 +34,11 @@ class SearchPage {
       page: "search",
     };
 
-    this.channels = appData.content;
+    this.channels = appData;
     this.firstTwentyfiveItems = [];
 
-    this.page = detect_page(this.data.page);
-    const search_page = Object.values(appData.menu.pages).find(
-      (page) => page.page_client_class === "search"
-    );
-    graphic = search_page.graphic;
+    // this.page = detect_page(this.data.page);
+    this.page = this.data.page;
   }
 
   /**
@@ -92,7 +93,7 @@ class SearchPage {
 
     let not_found_message = el("p", "not-found-message", "not_found_message");
 
-    SearchPage.foundedChannelsCount = Object.keys(this.channels).length;
+    SearchPage.foundedChannelsCount = this.channels.length;
 
 
     search_input.placeholder = get_word("search_placeholder");
@@ -100,7 +101,8 @@ class SearchPage {
     search_input_parent.appendChild(founded_items_count);
 
     search_page_title.innerHTML =
-      appData.graphic.appName +
+      // appData.graphic.appName +
+      'hello' +
       `<span class='app-name__border' style='background-color: ${graphic.text_color};'></span>` +
       this.page.page_title;
     search_parent.appendChild(search_page_title);
@@ -111,7 +113,7 @@ class SearchPage {
     search_input.oninput = this.searchInputChange;
     search_input.onclick = this.searchInputClick.bind(this);
 
-    this.firstTwentyfiveItems = Object.values(this.channels).slice(0, 25);
+    this.firstTwentyfiveItems = this.channels.slice(0, 25);
 
     search_result_parent.appendChild(
       new ChannleGrid({ channels: this.firstTwentyfiveItems }).render()
@@ -170,13 +172,25 @@ class SearchPage {
         value = e.target.value;
       }
 
-      const channels = Object.keys(appData.content).filter((key, index) => {
-        const channel = appData.content[key];
-        return channel.title.toLowerCase().includes(value?.toLowerCase());
+        //FIX: here
+      // const channels = Object.keys(appData.content).filter((key, index) => {
+      //   const channel = appData.content[key];
+      //   return channel.title.toLowerCase().includes(value?.toLowerCase());
+      //
+      // });
 
-      });
+        const channels = [];
+        for(let i = 0; i < appData.length; i++){
+            const playlist = appData[i];
+            for(let j = 0; j < playlist.videos.length; j++){
+                const video = playlist.videos[j];
+                if(video.title.toLowerCase().includes(value.toLowerCase(0))){
+                    channels.push(video);
+                }
+            }
+        }
 
-      const filtered_channels = {};
+      const filtered_channels = [];
 
       let not_found_message = document.getElementById("not_found_message");
       not_found_message.style.color = graphic.text_color;
@@ -215,10 +229,11 @@ class SearchPage {
 
       SearchPage.foundedChannelsCount = channels.length;
 
-      for (let i = 0; i < channels.length; i++) {
-        if (i < 25)
-          filtered_channels[channels[i]] = appData.content[channels[i]];
-        else break;
+      for (let x = 0; x < channels.length; x++) {
+          if (x < 25){
+              // filtered_channels[channels[i]] = appData.content[channels[i]];
+              filtered_channels.push(channels[x]);
+          } else break;
       }
 
 

@@ -28,19 +28,9 @@ window.pages = {
   /**
    * set current page name
   */
-  set_current: function (current, page_data = null) {
-    if (!current) current = "home";
-
-    const current_page = detect_page(current);
-    const globalAnalytics = new GlobalAnalytics();
-
-    if (this.pageVisited) {
-        globalAnalytics.sendEvent("pageVisit", {
-            page_ID: current_page?.page_id || null,
-            page_title: current_page?.page_title || "home",
-        });
-
-    }
+    set_current: function (current, page_data = null) {
+        if (!current) current = "home";
+        if(current === "categories") current = "series";
 
     this.pageVisited = true;
 

@@ -6,7 +6,7 @@ import pages from "./remote/pages.js";
 import Sidebar from "./layouts/sidebar.js";
 import ScreenSaver from "./components/common/screenSaver.js";
 import Player from "./pages/player.js";
-import { getAppData, getLogic } from "./api/request.js";
+import { BASE_URL, getAppData, getCategories, getLogic } from "./api/request.js";
 import "./styles/index.css";
 import { el, getItem, is_restricted, setItem, assignColorCode, arrayToObject } from "./utils.js";
 import channelSettings from "./settings/channelSettings.js";
@@ -29,15 +29,12 @@ window.OS = "";
 
 window.onload = function () {
 
-
     if (appSettings.production) {
         startApp();
     }
     else {
         pages.set_current("hashes")
     }
-
-    // GoogleAnalytics.measurementSetup();
 
     // prevent history back in zeasn
     if(Devices.platformInstance.name === 'zeasn'){
@@ -125,7 +122,22 @@ window.onload = function () {
         if (app_loader) app_loader.classList.add("show");
 
         const init = async () => {
-            const data = await getAppData();
+            // const data = await getAppData();
+            // await getCategories();
+            const [data, categories] = await Promise.all([getAppData(), getCategories()]);
+            const categoryPromises = categories.map(async category => {
+                const url = BASE_URL + '/' + category.path;
+                const res = await fetch(url);
+                return {key: category.path, data: await res.json()}
+            });
+
+            const categoriesData = await Promise.all(categoryPromises);
+            const categoriesObject = {};
+            categoriesData.forEach(category => {
+                categoriesObject[category.key] = category.data;
+            });
+            window.categoriesData = categoriesObject;
+            // console.log(categoriesData);
 
             if (data.appJson) {
 
@@ -186,6 +198,8 @@ window.onload = function () {
                             // var sidebar = new Sidebar();
                             // sidebar.mounted();
                         // }
+                        var sidebar = new Sidebar();
+                        sidebar.mounted();
 
                         let foundVideo = null;
                         let entities = null;

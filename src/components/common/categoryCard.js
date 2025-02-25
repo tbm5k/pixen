@@ -41,15 +41,15 @@ render() {
 
     const image_el = el("img", "series-category-card__img");
     const image = new Image();
-    image.src = this.category.image;
+    image.src = this.category.thumbnail;
 
     image.onload = () => {
-  
-      image_el.src= ChannelCard.getCompressedImage(this.category.image, 528, 315);
+      image_el.src= ChannelCard.getCompressedImage(this.category.thumbnail, 528, 315);
     };
 
     image.onerror = () => {
-      image_el.src = appData.graphic.appLogo;
+      // image_el.src = appData.graphic.appLogo;
+      image_el.src = this.category.thumbnail;
       image_el.classList.add("error");
     };
 

@@ -259,7 +259,7 @@ const getManifest = async (url, iso) => {
  * @param {*} dataToReplace
  * @returns {unknown}
  */
-var BASE_URL = "https://pixen.b-cdn.net";
+export const BASE_URL = "https://pixen.b-cdn.net";
 const getAppJson = async (page) => {
     try{
         const res = await fetch(`${BASE_URL}/${page}.json`);
@@ -446,15 +446,12 @@ const getAppData = async () => {
     }
 };
 
-// Global listener for unhandled rejections
-window.addEventListener("unhandledrejection", (event) => {
-    console.error("Unhandled rejection:", event.reason?.stack || event.reason);
-    // errorReport.trackError({
-    //     message: event.reason?.message || "Unhandled rejection",
-    //     stack: event.reason?.stack || "No stack trace",
-    // });
-});
-
+const getCategories = async () => {
+    const response = await fetch("https://pixen.b-cdn.net/pixen_categories.json");
+    const categories = await response.json();
+    window.categories = categories;
+    return categories;
+}
 
 // Global listener for unhandled rejections
 window.addEventListener("unhandledrejection", (event) => {
@@ -466,4 +463,14 @@ window.addEventListener("unhandledrejection", (event) => {
 });
 
 
-export { getLogic, getAppData };
+// Global listener for unhandled rejections
+window.addEventListener("unhandledrejection", (event) => {
+    console.error("Unhandled rejection:", event.reason?.stack || event.reason);
+    // errorReport.trackError({
+    //     message: event.reason?.message || "Unhandled rejection",
+    //     stack: event.reason?.stack || "No stack trace",
+    // });
+});
+
+
+export { getLogic, getAppData, getCategories };

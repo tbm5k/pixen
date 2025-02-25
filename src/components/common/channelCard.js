@@ -123,9 +123,9 @@ render() {
       channel_inner_img.src = ChannelCard.getCompressedImage(imgSrc, imgWidth, imgHeight);
     };
 
-    image.onerror = () => {
-      channel_inner_img.src = appData.graphic.defaultThumbnail;
-    };
+    // image.onerror = () => {
+    //   channel_inner_img.src = appData.graphic.defaultThumbnail;
+    // };
     
     let image_size = "316x177";
 
@@ -173,9 +173,9 @@ render() {
         parental_img.src = ChannelCard.getCompressedImage(parentalImgSrc, 50, 50);        
       };
 
-      image.onerror = () => {
-        parental_img.src = appData.graphic.defaultThumbnail;
-      };
+      // image.onerror = () => {
+      //   parental_img.src = appData.graphic.defaultThumbnail;
+      // };
 
       channel_img.appendChild(parental_img);
     }

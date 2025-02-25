@@ -102,7 +102,8 @@ class HomeHeader {
             };
 
             image.onerror = () => {
-                img = appData.graphic.defaultThumbnail;
+                // img = appData.graphic.defaultThumbnail;
+                img = '';
                 setHeaderImage(img);
             };
         } else {
