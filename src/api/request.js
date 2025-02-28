@@ -389,7 +389,6 @@ const getAppData = async () => {
 
         // Ensure required data is present
         const appJson = await getAppJson('home');
-        console.log(appJson)
 
         // Load additional scripts based on appJson
         try {

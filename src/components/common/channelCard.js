@@ -15,50 +15,47 @@ class ChannelCard {
  * Creates an instance of ChannelCard.
  *
  * @constructor
- * @param {{ id: any; title: any; thumbnail: any; description: any; index: any; row: any; duration: any; resolution: any; parental_control: any; isMovieCarousel: any; cardClickHandler: any; cardMouseOver: any; content_type: any; }} param0
+ * @param {{ id: any; title: any; thumbnail: any; description: any; url: string; index: any; row: any; duration: any; resolution: any; isMovieCarousel: any; cardClickHandler: any; cardMouseOver: any; }} param0
  * @param {*} param0.id
  * @param {*} param0.title
  * @param {*} param0.thumbnail
+ * @param {*} param0.url
  * @param {*} param0.description
  * @param {*} param0.index
  * @param {*} param0.row
  * @param {*} param0.duration
  * @param {*} param0.resolution
- * @param {*} param0.parental_control
  * @param {*} param0.isMovieCarousel
  * @param {*} param0.cardClickHandler
  * @param {*} param0.cardMouseOver
- * @param {*\} param0.content_type
  */
 constructor({
     id,
     title,
     thumbnail,
+    url,
     description,
     index,
     row,
     duration,
     resolution,
-    parental_control,
     isMovieCarousel,
     cardClickHandler,
     cardMouseOver,
-    content_type,
   }) {
     this.data = {
       id,
       title,
       thumbnail,
+    url,
       description,
       index,
       row,
       duration,
       resolution,
-      parental_control,
       isMovieCarousel,
       cardClickHandler,
       cardMouseOver,
-      content_type,
     };
   }
 
@@ -201,12 +198,9 @@ render() {
         index: _this.data.index,
         title: _this.data.title,
         thumbnail: _this.data.thumbnail,
-        thumbnail_playlist: _this.data.thumbnail_playlist,
-        videoDuration: _this.data.videoDuration,
+        url: _this.data.url,
+        duration: _this.data.duration,
         description: _this.data.description,
-        parental_control: _this.data.parental_control,
-        isLive: _this.data.isLive,
-        content_type: _this.data.content_type,
       };            
       _this.data.cardClickHandler(item);
     };

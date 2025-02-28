@@ -116,43 +116,7 @@ class HubPage {
       window.player_obj.render();
     }
 
-    const detailedPopup = window.appData.graphic.detailed_popup;
-
-    if (detailedPopup) {
-
-      const channelInfo = new ChannelInfo({
-        id: item.id,
-        title: item.title,
-        thumbnail: item.thumbnail,
-        description: item.description,
-        isLive: item.isLive,
-        index: item.index,
-        row: item.row,
-        duration: item.duration,
-        resolution: item.resolution,
-        parental_control: item.parental_control,
-        isMovieCarousel: item.isMovieCarousel,
-        cardClickHandler: () => { itemClick(item) },
-        cardMouseOver: () => { },
-        content_type: item.content_type,
-      });
-
-      const detailPopupOptions = {
-        children: [channelInfo.render()],
-      };
-
-      const detailedPopup = new DetailedPopup(detailPopupOptions);
-      detailedPopup.render();
-
-      DetailedPopup.show();
-
-      controles.set_current("detailed_popup");
-      controles.detailed_popup.set_current("channel_info");
-      controles.detailed_popup.channel_info.move();
-
-    } else {
-      itemClick(item);
-    }
+     itemClick(item);
 
   }
 

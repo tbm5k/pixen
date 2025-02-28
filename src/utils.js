@@ -363,7 +363,7 @@ document.addEventListener("visibilitychange", function () {
       if (platformName === "samsung") {
         window.webapis.avplay.suspend();
       } else {
-        video.pause();
+        // video.pause();
       }
     }
   } else {
@@ -371,7 +371,7 @@ document.addEventListener("visibilitychange", function () {
       if (platformName === "samsung") {
         window.webapis.avplay.resume();
       } else {
-        video.play();
+        // video.play();
       }
     }
   }

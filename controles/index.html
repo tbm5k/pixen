@@ -1,0 +1,50 @@
+<!-- <iframe id="player" src="https://www.youtube-nocookie.com/embed/oDMlKOKr9bA?enablejsapi=1&autoplay=1&mute=1" allow="autoplay"></iframe> -->
+<div id="player"></div>
+<button id="btn">Play | Pause</button>
+
+<script>
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    let player;
+    function onYouTubeIframeAPIReady() {
+        player = new YT.Player('player', {
+            videoId: 'oDMlKOKr9bA',
+            playerVars: {
+                autoplay: 1,
+                mute: 1,
+                controles: 0
+            },
+            events: {
+                'onReady': onPlayerReady,
+                'onStateChange': onPlayerStateChange,
+            }
+        });
+    }
+
+    function onPlayerStateChange(event) {
+        if (event.data === YT.PlayerState.SEEKING) {
+            console.log("User is seeking the video...");
+        }
+    }
+
+    function onPlayerReady(event) {
+        /*
+        setTimeout(() => {
+            player.unMute();
+            player.playVideo()
+        }, 2000);
+        */
+    }
+
+    const btn = document.getElementById('btn');
+    btn.addEventListener('click', () => {
+        if (player.getPlayerState() === YT.PlayerState.PLAYING) {
+            player.pauseVideo();
+        } else {
+            player.playVideo();
+        }
+    });
+</script>

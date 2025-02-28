@@ -5,7 +5,6 @@
 import { el, setItem } from "../utils.js";
 import CategoryCard from "../components/common/categoryCard";
 import pages from "../remote/pages.js";
-import ChannleGrid from "../components/common/channelGrid.js";
 
 /**
  * @class SeriesPage
@@ -23,7 +22,6 @@ class SeriesPage {
     constructor() {
         this.categories = window.categories;
     }
-
 
     render() {
         if (SeriesPage.page_element) return;

@@ -56,11 +56,11 @@ window.controles = {
 
         move: function () {
             remove_active_class("active");
-            remove_active_style(this.items, appData.menu.menu_text_color);
+            remove_active_style(this.items, "#fff");
 
             this.items[this.index].classList.add("active");
             if (this.items[this.index].classList.contains("active")) {
-                this.items[this.index].style.color = appData.menu.menu_text_color_hover;
+                this.items[this.index].style.color = "red";
                 SpeechText.read(this.items[this.index].innerText);
             }
         },
@@ -222,7 +222,7 @@ window.controles = {
                     remove_active_class("active");
                     remove_active_class("active_row");
                     row_items[this.row].classList.add("active_row");
-                    console.log("home:mouse", this.index, this.items.length)
+                    // console.log("home:mouse", this.index, this.items.length)
                     if (this.index >= this.items.length) {
                         this.index = this.index % this.items.length
                     }
@@ -299,7 +299,10 @@ window.controles = {
 
             left: function () {
                 // if (appData.graphic.is_player_app && this.index < 1) return;
-                if (this.index < 1) return;
+                if (this.index === 0) {
+                    Sidebar.show();
+                    return;
+                }
 
                 if (this.index == 0) {
                     Sidebar.show();
@@ -1617,44 +1620,32 @@ window.controles = {
             },
 
             back: function () {
-                Player.isAdPlaying = false;
                 const sidebar = document.getElementById("sidebar");
                 if(sidebar){
                     sidebar.style.display = "block";
                 }
-                GoogleAnalytics.sendEvent({name: "clicks", parameters: {
-                    CLICK: "BACK"
-                }});
-                const video = document.querySelector("video");
-                if (video) {
-                    HlsPlayer.sendVideoEndEvent();
-                    const id = video.getAttribute("data-id");
-                    const channel = appData.content[id];
-                    if (!channel?.is_live_streaming) {
-                        HlsPlayer.addToContinueWatchingList(id, video.currentTime);
-                    }
-
-                    if(!video.paused && !video.ended && video.readyState > video.HAVE_CURRENT_DATA) {
-                        video.pause();
-                    }
-                }
-
+                // GoogleAnalytics.sendEvent({name: "clicks", parameters: {
+                //     CLICK: "BACK"
+                // }});
+                // const video = document.querySelector("video");
+                // if (video) {
+                //     const id = video.getAttribute("data-id");
+                //     HlsPlayer.addToContinueWatchingList(id, video.currentTime);
+                //
+                //     if(!video.paused && !video.ended && video.readyState > video.HAVE_CURRENT_DATA) {
+                //         video.pause();
+                //     }
+                // }
+                //
                 const app_loader = document.querySelector(".app-loader");
                 if (app_loader) {
                     app_loader.classList.remove("show");
                 }
+                const frame = document.getElementsByTagName("iframe");
 
-                const adParent = document.getElementById("ad_parent");
-                if (adParent) {
-                    adParent.remove();
-                }
-
-                if (adsManager) {
-                    adsManager.destroy();
-                }
                 // Player.page_element.remove();
-                video.removeAttribute('src'); // empty source prevents loading in the background
-                video.remove();
+                // video.removeAttribute('src'); // empty source prevents loading in the background
+                // video.remove();
                 pages.set_previous();
             },
 

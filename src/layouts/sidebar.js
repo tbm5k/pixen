@@ -126,7 +126,7 @@ function Sidebar() {
             sidebar_list_item.classList.add("selected");
         }
 
-        sidebar_item_name.style.color = menu_text_color;
+        sidebar_list_item.style.color = menu_text_color;
 
         sidebar_item_name.innerHTML = items[i];
 
