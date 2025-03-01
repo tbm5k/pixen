@@ -454,16 +454,17 @@ window.controles = {
                 }});
                 // console.log("closing", e)
                 // e.preventDefault();
-                if (appData.graphic.is_player_app) {
-                    new ModalComponent({
-                        title: "Exit",
-                        content: "Are you sure you want to exit?",
-                    });
-                    controles.set_current("modal");
-                    move();
-                } else {
+                // if (appData.graphic.is_player_app) {
+                //     new ModalComponent({
+                //         title: "Exit",
+                //         content: "Are you sure you want to exit?",
+                //     });
+                //     controles.set_current("modal");
+                //     move();
+                // } else {
+                //     Sidebar.show()
+                // }
                     Sidebar.show()
-                }
             },
         },
 
@@ -1620,6 +1621,7 @@ window.controles = {
             },
 
             back: function () {
+                console.log('here');
                 const sidebar = document.getElementById("sidebar");
                 if(sidebar){
                     sidebar.style.display = "block";

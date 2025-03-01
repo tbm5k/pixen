@@ -314,7 +314,7 @@ window.onload = function () {
 
         const splashImage = document.createElement('img');
         splashImage.setAttribute('id', 'splash');
-        splashImage.setAttribute('src', '/splash.png');
+        splashImage.setAttribute('src', './splash.png');
         splashImage.style.width = "100%"
 
         app_loader_parent.appendChild(splashImage);

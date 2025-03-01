@@ -351,7 +351,7 @@ class Player {
 
     playerKeyDownHandler(e) {
         e.stopPropagation();
-        if(e.keyCode == 8){
+        if(e.keyCode == 8 || e.keyCode === 461){
             clearTimeout(this.hideControlsTimeout);
             clearTimeout(gradientTimer);
             if(this.player) this.player.destroy();
@@ -360,7 +360,7 @@ class Player {
             this.progressContainer?.remove();
             this.gradient?.remove();
 
-        } else if(e.keyCode == 32) {
+        } else if(e.keyCode == 32 || e.keyCode == 13) {
             if(!this.player || typeof this.player.pauseVideo !== "function") return;
 
             const isPlayingState = this.player.getPlayerState();

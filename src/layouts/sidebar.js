@@ -94,7 +94,7 @@ function Sidebar() {
 
             // Side Bar top logo
             var sidebar_large_logo = el("div", "sidebar-large__logo");
-            sidebar_large_logo.style.backgroundImage = "url('/p-logo.png')";
+            sidebar_large_logo.style.backgroundImage = "url('./p-logo.png')";
             // sidebar_large_logo.style.backgroundImage = "url(" + this.data.top_image_open_menu + ")";
 
             if(this.data.bottom_image_close_menu) {
@@ -141,21 +141,6 @@ function Sidebar() {
                     this.childNodes[0].style.color = menu_text_color_hover;
                 };
             }
-
-            // exist item in the side bar
-            var exit_item = el("li", "sidebar-list__item");
-            var exit_item_name = el("p", "sidebar-icon__name sidebar-icon__name5");
-            exit_item_name.innerHTML = get_word("exit");
-
-            exit_item.appendChild(exit_item_name);
-            exit_item.onclick = this.methods.exitModalHandler;
-            sidebar_icons_parent.appendChild(exit_item);
-
-            exit_item.onmouseover = function() {
-                const items = document.getElementsByClassName("sidebar-icon__name");
-                remove_active_style(items, menu_text_color);
-                this.childNodes[0].style.color = menu_text_color_hover;
-            };
 
             sidebar_logo.appendChild(sidebar_large_logo);
             sidebar.appendChild(sidebar_logo);

@@ -106,6 +106,7 @@ function animation_end() {
 }
 
 document.onkeydown = function (e) {
+    console.log('key down', e.keyCode)
     displayLog(e.keyCode)
     e.preventDefault();
   clearInterval(screen_saver_timeout);
@@ -212,6 +213,7 @@ function check_key(e) {
     case KeyCode.RETURN:
     case KeyCode.RETURN_WEB:
     case KeyCode.RETURN_WEBOS:
+          console.log('back btn')
       name = "back";
       break;
 

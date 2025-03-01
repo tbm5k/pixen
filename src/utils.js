@@ -271,7 +271,7 @@ function application_exit() {
  * @returns {*}
  */
 function get_word(key) {
-    return '';
+    return key;
   // return window.appData.translations[key] || key;
 }
 
