@@ -16,6 +16,7 @@ import pages from "../remote/pages";
 import { el, isVideoValid, remove_active_class } from "../utils";
 import Player from "./player";
 import Devices from "../services/deviceCenter";
+// import { document } from "postcss";
 
 class HomePage {
     /**
@@ -288,13 +289,18 @@ class HomePage {
         * @returns {*}
         */
         cardClick = (item) => {
-            if (!navigator.onLine) {
-                return new InfoModal({ title: "No internet connection" });
-            }
+            if (!navigator.onLine) return new InfoModal({ title: "No internet connection" });
             // const video = appData[item.video_id];
             pages.set_current("player");
             const entityArray = this.entityArray.length > 0 ? this.entityArray : window.entityArray;
-            window.player_obj = new Player(item, entityArray);
+
+            const currentVideo = document.querySelector(`[data-id="${item.video_id}"]`);
+            const videoIndex = currentVideo.getAttribute('data-index');
+            const parentPlaylistIndex = currentVideo.parentElement.parentElement.getAttribute('entity_id');
+
+            const playlistVideos = entityArray[parentPlaylistIndex].videos;
+
+            window.player_obj = new Player(item, playlistVideos, videoIndex);
             window.player_obj.render();
         };
 

@@ -122,24 +122,25 @@ window.onload = function () {
         if (app_loader) app_loader.classList.add("show");
 
         const init = async () => {
-            // const data = await getAppData();
-            // await getCategories();
-            const [data, categories] = await Promise.all([getAppData(), getCategories()]);
-            const categoryPromises = categories.map(async category => {
-                const url = BASE_URL + '/' + category.path;
-                const res = await fetch(url);
-                return {key: category.path, data: await res.json()}
-            });
+            try{
+                // const data = await getAppData();
+                // await getCategories();
+                const [data, categories] = await Promise.all([getAppData(), getCategories()]);
+                const categoryPromises = categories.map(async category => {
+                    const url = BASE_URL + '/' + category.path;
+                    const res = await fetch(url);
+                    return {key: category.path, data: await res.json()}
+                });
 
-            const categoriesData = await Promise.all(categoryPromises);
-            const categoriesObject = {};
-            categoriesData.forEach(category => {
-                categoriesObject[category.key] = category.data;
-            });
-            window.categoriesData = categoriesObject;
-            // console.log(categoriesData);
+                const categoriesData = await Promise.all(categoryPromises);
+                const categoriesObject = {};
+                categoriesData.forEach(category => {
+                    categoriesObject[category.key] = category.data;
+                });
+                window.categoriesData = categoriesObject;
+                // console.log(categoriesData);
 
-            if (data.appJson) {
+                if (!data.appJson) return;
 
                 entInfo();
 
@@ -256,7 +257,9 @@ window.onload = function () {
                 }
 
                 window["limit"] = 3;
-        };
+            }catch(err){
+                console.log(err);
+            }
         }
 
         init();

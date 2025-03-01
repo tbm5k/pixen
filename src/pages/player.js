@@ -25,13 +25,18 @@ import pages from "../remote/pages.js";
     let keydown_timer = null;
     let videoPlayedTimer = null;
     let delayTimer = null;
+    let gradientTimer = null;
 
 class Player {
-    constructor(channel = {}, entityArray = []) {
+    constructor(channel = {}, entityArray = [], videoIndex = 0) {
+        this.videoIndex = videoIndex;
         this.video = document.createElement("div");
         this.video.setAttribute('id', 'video')
         // this.video.id = "player";
 
+        console.log(videoIndex)
+        console.log(channel)
+        console.log(entityArray)
         this.video.style.width = "100%";
         this.video.style.height = "100vh";
 
@@ -59,7 +64,6 @@ class Player {
             e.stopPropagation();
 
             this.showControls();
-            // Player.showPlayerControls(true);
         });
         const root = document.getElementById("root");
         root.appendChild(this.video);
@@ -193,22 +197,18 @@ class Player {
     }
 
     onPlayerStateChange(event) {
-        // if (event.data === YT.PlayerState.PLAYING) {
-        //     // let watermark = document.getElementsByClassName('ytp-watermark')[0];
-        //     // watermark.style.display = 'none';
-        //     console.log("Video started playing!");
-        //     this.updateProgressBar();
-        // }
         if (event.data === YT.PlayerState.PLAYING) {
             this.playPauseButton.innerText = "⏸"; // Change to pause icon
             this.updateProgressBar();
         } else if (event.data === YT.PlayerState.PAUSED) {
             this.playPauseButton.innerText = "▶"; // Change to play icon
+        } else if(event.data === YT.PlayerState.ENDED) {
+            this.playNextVideo()
         }
     }
 
     updateProgressBar() {
-        if (!this.player || !this.progressBar) return;
+        if (!this.player || !this.progressBar || !this.currentTimeDisplay || !this.totalTimeDisplay) return;
 
         const update = () => {
             if (this.player && this.player.getCurrentTime && this.player.getDuration) {
@@ -218,12 +218,21 @@ class Player {
                 if (duration > 0) {
                     const progress = (currentTime / duration) * 100;
                     this.progressBar.style.width = `${progress}%`;
+
+                    this.currentTimeDisplay.textContent = this.formatTime(currentTime);
+                    this.totalTimeDisplay.textContent = this.formatTime(duration);
                 }
             }
             requestAnimationFrame(update);
         };
 
         update();
+    }
+
+    formatTime(seconds) {
+        const min = Math.floor(seconds / 60);
+        const sec = Math.floor(seconds % 60);
+        return `${min}:${sec < 10 ? "0" : ""}${sec}`;
     }
 
     togglePlayPause() {
@@ -257,7 +266,7 @@ class Player {
         this.progressContainer.style.transform = "translateX(-50%)";
         this.progressContainer.style.display = "flex";
         this.progressContainer.style.alignItems = "center";
-        this.progressContainer.style.width = "60%";
+        this.progressContainer.style.width = "70%";
         this.progressContainer.style.background = "transparent";
         this.progressContainer.style.height = "10px";
         this.progressContainer.style.zIndex = "1000";
@@ -268,8 +277,8 @@ class Player {
         this.playPauseButton.id = "play-pause-button";
         this.playPauseButton.innerText = "▶"; // Play icon initially
         this.playPauseButton.style.marginRight = "10px";
-        this.playPauseButton.style.width = "40px";
-        this.playPauseButton.style.height = "40px";
+        this.playPauseButton.style.width = "30px";
+        this.playPauseButton.style.height = "30px";
         this.playPauseButton.style.border = "none";
         this.playPauseButton.style.borderRadius = "50%";
         this.playPauseButton.style.background = "#f00";
@@ -280,7 +289,7 @@ class Player {
         // Create progress bar
         let progressWrapper = document.createElement("div");
         progressWrapper.style.width = "100%";
-        progressWrapper.style.height = "10px";
+        progressWrapper.style.height = "5px";
         progressWrapper.style.background = "#ddd";
         progressWrapper.style.borderRadius = "5px";
         progressWrapper.style.overflow = "hidden";
@@ -292,9 +301,21 @@ class Player {
         this.progressBar.style.height = "100%";
         this.progressBar.style.background = "#f00";
 
+        this.currentTimeDisplay = document.createElement("span");
+        this.currentTimeDisplay.style.color = "#fff";
+        this.currentTimeDisplay.style.marginRight = "10px";
+        this.currentTimeDisplay.style.fontSize = "14px";
+
+        this.totalTimeDisplay = document.createElement("span");
+        this.totalTimeDisplay.style.color = "#fff";
+        this.totalTimeDisplay.style.marginLeft = "10px";
+        this.totalTimeDisplay.style.fontSize = "14px";
+
         progressWrapper.appendChild(this.progressBar);
         this.progressContainer.appendChild(this.playPauseButton);
         this.progressContainer.appendChild(progressWrapper);
+        this.progressContainer.appendChild(this.currentTimeDisplay);
+        this.progressContainer.appendChild(this.totalTimeDisplay);
 
         if (!document.querySelector("script[src='https://www.youtube.com/iframe_api']")) {
             const script = document.createElement("script");
@@ -329,24 +350,79 @@ class Player {
     }
 
     playerKeyDownHandler(e) {
-        // if (pages.current == "player") {
-            e.stopPropagation();
-            if(e.keyCode == 8){
-                clearTimeout(this.hideControlsTimeout);
-                if(this.player) this.player.destroy();
-                // this.player = null;
-                // this.progressBar = null;
-                // this.playPauseButton = null;
-                // this.progressContainer = null;
-                this.hideControlsTimeout = null;
+        e.stopPropagation();
+        if(e.keyCode == 8){
+            clearTimeout(this.hideControlsTimeout);
+            clearTimeout(gradientTimer);
+            if(this.player) this.player.destroy();
+            this.hideControlsTimeout = null;
 
+            this.progressContainer?.remove();
+            this.gradient?.remove();
 
-                const progress = document.getElementById('progress-container');
-                progress?.remove();
+        } else if(e.keyCode == 32) {
+            if(!this.player || typeof this.player.pauseVideo !== "function") return;
+
+            const isPlayingState = this.player.getPlayerState();
+            const root = document.getElementById("root");
+
+            if(isPlayingState === 1) {
+                try {
+                    this.player.pauseVideo();
+                } catch (error) {
+                    console.error("Error pausing video:", error);
+                    return; // Stop execution if player is invalid
+                }
+                //add gradient
+                const gradient = el("div", "", "gradient");
+
+                gradient.style.position = "fixed";
+                gradient.style.bottom = "0";
+                gradient.style.left= "50%";
+                gradient.style.width = "100%";
+                gradient.style.height = "200px";
+                gradient.style.zIndex = "100";
+                gradient.style.transform = "translateX(-50%)";
+                gradient.style.backgroundImage = "linear-gradient(to top, rgba(0, 0, 0, 1) 85%, rgba(0, 0, 0, 0) 100%)";
+
+                this.gradient = gradient;
+                root.appendChild(gradient);
+
             } else {
-                this.showControls();
+                clearTimeout(gradientTimer);
+                gradientTimer = setTimeout(() => {
+                    this.gradient.remove();
+                }, 1000);
+                this.player.playVideo();
             }
-        // }
+            this.showControls();
+        } else {
+            this.showControls();
+        }
+    }
+
+    playNextVideo() {
+        this.videoIndex++;
+
+        if (this.videoIndex >= this.entityArray.length) this.videoIndex = 0;
+
+        const nextChannel = this.entityArray[this.videoIndex];
+        this.channel = nextChannel;
+
+        const params = nextChannel?.url ? new URLSearchParams(nextChannel.url.split('?')[1]) : null;
+        const id = params?.get("v") || 'oDMlKOKr9bA';
+
+        this.player.loadVideoById(id);
+    }
+
+    findNextChannel(id) {
+        // const combinedContents = this.combineChannels();
+        const nextChannelIndex = this.entityArray.findIndex((item) => item === id);
+
+        if (nextChannelIndex === combinedContents.length - 1) {
+            return appData.content[combinedContents[0]];
+        }
+        return [appData.content[combinedContents[nextChannelIndex + 1]], nextChannelIndex];
     }
 
     // render() {

@@ -326,32 +326,32 @@ function setItem(key, value) {
 }
 
 window.onoffline = function () {
-  const infoModalOptions = {
-    title:
-      "You are not connected to the internet, please check your internet connection",
-    hideButton: true,
-    fullScreen: true,
-  };
-  new InfoModal(infoModalOptions);
+    const infoModalOptions = {
+        title:
+        "You are not connected to the internet, please check your internet connection",
+        hideButton: true,
+        fullScreen: true,
+    };
+    new InfoModal(infoModalOptions);
 
-  const video = document.getElementById("video");
-
-  if (pages.current === "player") {
-    video.pause();
-  }
+  // const video = document.getElementById("video");
+  //
+  // if (pages.current === "player") {
+  //   // video.pause();
+  // }
 };
 
 window.ononline = function () {
-  new InfoModal({
-    title: "Network connection restored",
-    hideAfterRestore: true,
-  });
+    new InfoModal({
+        title: "Network connection restored",
+        hideAfterRestore: true,
+    });
 
-  const video = document.getElementById("video");
+  // const video = document.getElementById("video");
 
-  if (pages.current === "player") {
-    video.play();
-  }
+  // if (pages.current === "player") {
+  //   video.play();
+  // }
 };
 
 document.addEventListener("visibilitychange", function () {

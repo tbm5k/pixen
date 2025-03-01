@@ -259,7 +259,9 @@ const getManifest = async (url, iso) => {
  * @param {*} dataToReplace
  * @returns {unknown}
  */
-export const BASE_URL = "https://pixen.b-cdn.net";
+// export const BASE_URL = "https://pixen.b-cdn.net";
+export const BASE_URL = "https://cdn.jsdelivr.net/gh/ayodorigan/pixent-tv-assets";
+
 const getAppJson = async (page) => {
     try{
         const res = await fetch(`${BASE_URL}/${page}.json`);
@@ -267,48 +269,8 @@ const getAppJson = async (page) => {
 
         return data;
     }catch(err){
-        console.log('Cannot fetch data');
         underMaintenance(err);
     }
-    // try {
-    //     // Fetch the JSON text from the API
-    //     const jsonText = await GET(apiUrl, { type: "text" }).catch((err) => {
-    //         console.error("Error during GET request for App JSON:", err);
-    //         throw new Error("Failed to fetch App JSON data");
-    //     });
-    //
-    //     if (!jsonText) {
-    //         throw new Error("Received empty or undefined JSON text from API");
-    //     }
-    //
-    //     // Replace placeholders and parse the JSON
-    //     try {
-    //         const parsedJson = JSON.parse(
-    //             jsonText.replace(/\$\{USER_COUNTRY\}/g, dataToReplace)
-    //         );
-    //
-    //         if (!parsedJson) {
-    //             throw new Error("Failed to parse JSON: Parsed data is null or undefined");
-    //         }
-    //
-    //         return parsedJson;
-    //     } catch (parseError) {
-    //         console.error("Error parsing JSON:", parseError);
-    //         throw new Error("Failed to parse App JSON data");
-    //     }
-    // } catch (error) {
-    //     console.error("Error in getAppJson:", error);
-    //
-    //     // Track the error for monitoring purposes
-    //     errorReport.trackError({
-    //         message: error.message || "Unknown error",
-    //         stack: error.stack || "No stack trace",
-    //         additionalInfo: { apiUrl, dataToReplace },
-    //     });
-    //
-    //     // Re-throw the error to propagate it
-    //     throw error;
-    // }
 };
 
 /**
@@ -446,10 +408,14 @@ const getAppData = async () => {
 };
 
 const getCategories = async () => {
-    const response = await fetch("https://pixen.b-cdn.net/pixen_categories.json");
-    const categories = await response.json();
-    window.categories = categories;
-    return categories;
+    try{
+        const response = await fetch(`${BASE_URL}/pixen_categories.json`);
+        const categories = await response.json();
+        window.categories = categories;
+        return categories;
+    }catch(err){
+        console.log(err);
+    }
 }
 
 // Global listener for unhandled rejections
