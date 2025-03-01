@@ -140,10 +140,11 @@ body.rtl .sidebar-bottom-large__logo, body.rtl .sidebar-bottom__logo {
 }
 
 .sidebar-large__logo {
-    width: 18.5rem;
-    height: 14rem;
+    width: 52px;
+    /* height: 14rem; */
     top: .5rem;
-    opacity: 0;
+    margin: 0;
+    /* opacity: 0; */
 } 
 
 .sidebar-bottom-large__logo {

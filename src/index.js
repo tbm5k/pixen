@@ -108,7 +108,7 @@ window.onload = function () {
         }
 
         // add comcast script
-        loadImaSdk();
+        // loadImaSdk();
 
         createStaticElements();
 
@@ -177,6 +177,7 @@ window.onload = function () {
                 const video_loader_img = window.appData?.graphic?.loader_image;
                 const loader_parent = document.getElementById("loader_parent");
 
+                console.log('loader image', video_loader_img)
                 if (video_loader_img) {
                     loader_parent.innerHTML = "";
                     const loader_img = document.createElement("img");
@@ -219,8 +220,11 @@ window.onload = function () {
                         }
 
                         const app_loader = document.getElementById("app_loader");
-                        if (app_loader) app_loader.classList.remove("show");
-                        app_version.remove();
+                
+                        setTimeout(() => {
+                            if (app_loader) app_loader.classList.remove("show");
+                            app_version.remove();
+                        }, 1000);
 
                 const [brighData] = channelSettings.getPlugins("brighData");
 
@@ -308,7 +312,12 @@ window.onload = function () {
             loader_parent.appendChild(loader_item2);
         }
 
-        app_loader_parent.appendChild(loader_parent);
+        const splashImage = document.createElement('img');
+        splashImage.setAttribute('id', 'splash');
+        splashImage.setAttribute('src', '/splash.png');
+        splashImage.style.width = "100%"
+
+        app_loader_parent.appendChild(splashImage);
 
         const ad_log_view = el(
             "div",
