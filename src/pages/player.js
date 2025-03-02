@@ -185,7 +185,7 @@ class Player {
             videoId: id,
             playerVars: {
                 autoplay: 1,
-                mute: 1,
+                mute: 0,
                 controls: 0,
                 showinfo: 0
             },
