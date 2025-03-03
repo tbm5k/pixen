@@ -93,11 +93,7 @@ class SearchPage {
         search_input_parent.appendChild(search_input);
         search_input_parent.appendChild(founded_items_count);
 
-        search_page_title.innerHTML =
-            // appData.graphic.appName +
-            'hello' +
-            `<span class='app-name__border' style='background-color: ${graphic.text_color};'></span>` +
-            this.page.page_title;
+        search_page_title.innerHTML = 'Search';
         search_parent.appendChild(search_page_title);
         search_parent.appendChild(search_input_parent);
         search_parent.appendChild(not_found_message);
